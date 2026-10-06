@@ -1,0 +1,31 @@
+/* lesson board */
+#board{position:absolute;left:676px;top:100px;width:564px;height:436px;border:3px solid var(--ink);border-radius:36px;background:#fff;padding:20px 30px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;text-align:center}
+#board.top{justify-content:flex-start}
+.math{font-family:var(--f-math);font-style:italic}
+.up{font-style:normal}
+.sig{font-family:var(--f-math);font-style:normal;font-size:1.25em}
+.vec{position:relative;display:inline-block;font-family:var(--f-math);font-style:italic}
+.vec::after{content:"";position:absolute;left:18%;right:-4%;top:-.12em;height:.14em;background:
+  linear-gradient(currentColor,currentColor) left center/100% 1.5px no-repeat}
+.vec::before{content:"";position:absolute;right:-8%;top:-.25em;border:.16em solid transparent;border-left:.3em solid currentColor;border-right:0}
+.eqBig{font-size:56px;line-height:1.1;font-family:var(--f-math)}
+.eqMid{font-size:30px;font-family:var(--f-math)}
+.cap{font-size:22px}
+.small{font-size:17px;color:var(--slate-ink)}
+.row{width:100%;padding:8px 12px;border-radius:14px;font-size:21px;transition:background .25s,opacity .25s;opacity:.4}
+.row.on{background:#FFF1E0;opacity:1}
+.row.done{opacity:1}
+.law{border-radius:20px;background:#EEF4F3;padding:14px 18px;font-size:21px;line-height:1.5;text-align:left}
+.law b{color:var(--teal)}
+.tbl{border-collapse:collapse;font-size:20px;width:100%}
+.tbl td,.tbl th{padding:7px 8px;border-bottom:1px solid #dde2e8}
+.tbl th{font-weight:600;font-size:17px;color:var(--slate-ink)}
+.tbl td{font-family:var(--f-math)}
+.tag{display:inline-block;background:var(--ink);color:#fff;border-radius:8px;padding:1px 10px;font-size:15px;letter-spacing:.04em}
+.q{font-size:22px;line-height:1.45;text-align:left;width:100%}
+.opts{display:flex;flex-direction:column;gap:9px;width:100%}
+.opt{text-align:left;background:#F3F5F8;border:2px solid transparent;border-radius:14px;padding:9px 14px;font:inherit;font-size:18px;line-height:1.4;cursor:pointer}
+.opt:hover{border-color:var(--slate)}
+.opt.right{background:#E3F4EA;border-color:var(--good)}
+.opt.wrong{background:#FBE7E7;border-color:var(--bad);opacity:.7}
+.opt:disabled{cursor:default}

@@ -1,0 +1,31 @@
+/* Layout: a fixed 1280×720 storyboard frame scaled to fit the window — stage on the left,
+   parameter panel on the right, dialogue bar along the bottom, exactly like the storyboard.
+   Deliberately a single light look: the hand-drawn line-art sprite is made for white paper. */
+:root{
+  --paper:#ffffff;
+  --ink:#15181c;
+  --slate:#C9D0DA;      /* storyboard panel grey-blue */
+  --slate-ink:#56606e;
+  --teal:#3D7B74;       /* the cart(?) */
+  --red:#FF3B30;        /* force arrows */
+  --amber:#FF9F3A;      /* highlighted forces / push gradient */
+  --good:#2E8B57;
+  --bad:#D64545;
+  --backdrop:#E7EBEF;
+  --f-ui:"IBM Plex Sans Thai Looped","Noto Sans Thai Looped","Noto Sans Thai",Tahoma,sans-serif;
+  --f-math:"STIX Two Text","Cambria Math","Times New Roman",serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+body{background:var(--backdrop);color:var(--ink);font-family:var(--f-ui);overflow:hidden}
+#app{position:fixed;inset:0;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;background:var(--paper);overflow:hidden;border-radius:6px}
+#cv{position:absolute;inset:0;width:1280px;height:720px}
+#title{position:absolute;top:20px;left:0;width:1280px;text-align:center;font-size:30px;font-weight:400;pointer-events:none;text-wrap:balance}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.in{animation:fadeUp .35s ease both}
+@keyframes fadeUp{from{opacity:.0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}

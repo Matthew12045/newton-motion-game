@@ -1,6 +1,6 @@
 # กฏการเคลื่อนที่ของนิวตัน — prototype notes
 
-Open `index.html` in any browser (sprites are embedded, no server needed).
+Run `npm run dev` to play while developing, or `npm run build` and open `dist/index.html` (a single self-contained file, no server needed). See the README for the project layout.
 
 ## Story flow (follows storyboard 48–57)
 

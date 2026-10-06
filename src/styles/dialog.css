@@ -1,0 +1,21 @@
+/* dialogue bar */
+#dialog{position:absolute;left:52px;top:552px;width:1188px;height:150px;background:var(--slate);border-radius:36px;display:flex;align-items:center;padding:0 18px 0 56px;gap:24px;cursor:pointer}
+#dbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:18px}
+#dtext{font-size:22px;line-height:1.45;text-wrap:pretty}
+#dtext b{font-weight:600}
+#choices{display:flex;gap:12px;flex-wrap:wrap}
+.choice{background:#fff;border:none;border-radius:999px;padding:6px 20px;font:inherit;font-size:19px;cursor:pointer}
+.choice:hover{background:#F2F4F7}
+#next{position:absolute;right:226px;bottom:6px;background:none;border:none;font:inherit;font-size:17px;color:var(--slate-ink);cursor:pointer;animation:nudge 1.2s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateX(4px)}}
+#portrait{width:180px;height:128px;background:#fff;border-radius:30px;position:relative;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:visible}
+#portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 8%;border-radius:30px}
+#portrait .name{font-size:26px}
+#portrait .sub{font-size:22px}
+#portrait .q4{font-size:22px;letter-spacing:.1em;color:var(--slate-ink)}
+#portrait .nm{position:absolute;bottom:-12px;right:-6px;background:var(--ink);color:#fff;font-size:14px;border-radius:8px;padding:1px 9px}
+.hp{position:absolute;top:-16px;left:4px;width:176px;height:18px;display:flex;align-items:center}
+.hp::before{content:"♥";color:var(--red);font-size:26px;line-height:1;position:relative;z-index:1;text-shadow:0 0 0 #000}
+.hp i{flex:1;height:12px;margin-left:-6px;background:#A890A8;border:2px solid #3b3550;border-radius:3px;position:relative;overflow:hidden}
+.hp i::after{content:"";position:absolute;inset:0;background:#E74C3C;animation:drain 2.4s ease-out forwards}
+@keyframes drain{from{right:0}to{right:92%}}

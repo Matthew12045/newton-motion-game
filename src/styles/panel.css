@@ -1,0 +1,33 @@
+/* parameter panel */
+#panel{position:absolute;left:896px;top:16px;width:344px;height:524px;background:var(--slate);border-radius:36px;padding:16px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.pill{background:#fff;border-radius:14px;padding:5px 20px;font-size:21px}
+.params{width:100%;display:flex;flex-direction:column}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+.prow label{font-size:19px;min-width:0}
+.prow label i{font-family:var(--f-math)}
+.num{display:flex;align-items:baseline;gap:5px;font-family:var(--f-math);font-size:19px;flex:none}
+.num input{width:84px;font:inherit;font-size:20px;text-align:right;border:none;border-radius:8px;padding:2px 6px;background:#fff;color:var(--ink);font-variant-numeric:tabular-nums}
+.num input:focus-visible{outline:2px solid var(--ink)}
+.num input:disabled{opacity:.6}
+.rng{width:100%;-webkit-appearance:none;appearance:none;height:14px;border-radius:7px;background:var(--teal);outline:none;margin:9px 0 7px}
+.rng::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#000;cursor:pointer;border:none}
+.rng::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:#000;cursor:pointer;border:none}
+.rng:focus-visible{box-shadow:0 0 0 4px #fff}
+.rng:disabled{opacity:.55}
+#panel.multi .prow label{font-size:15px}
+#panel.multi .num,#panel.multi .num input{font-size:17px}
+#panel.multi .num input{width:72px}
+#panel.multi .rng{height:10px;margin:6px 0 3px}
+#panel.multi .rng::-webkit-slider-thumb{width:22px;height:22px}
+#panel.multi .rng::-moz-range-thumb{width:22px;height:22px}
+#panel.multi #readout{grid-template-columns:auto 1fr auto 1fr;column-gap:10px;font-size:15px;padding:6px 12px}
+#info{font-size:15px;color:var(--slate-ink);text-align:center;line-height:1.35}
+#readout{width:100%;display:grid;grid-template-columns:auto 1fr;gap:0 10px;font-size:16px;line-height:1.35;background:rgba(255,255,255,.55);border-radius:16px;padding:8px 14px;font-variant-numeric:tabular-nums}
+#readout dt{font-family:var(--f-math);font-style:italic}
+#readout dd{margin:0;text-align:right;font-family:var(--f-math)}
+.roCap{align-self:flex-start;font-size:14px;color:var(--slate-ink);margin-bottom:-4px}
+#graph{width:300px;height:90px;flex:none;background:#fff;border-radius:12px}
+#playBtn{margin-top:auto}
+.btnWhite{background:#fff;border:none;border-radius:999px;padding:8px 34px;flex:none;font:inherit;font-size:24px;cursor:pointer;color:var(--ink);transition:transform .12s}
+.btnWhite:hover{transform:translateY(-2px)}
+.btnWhite:disabled{opacity:.5;cursor:default;transform:none}
