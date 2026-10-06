@@ -38,7 +38,7 @@ Forces are thick arrows (red/amber for pushes and weight, purple for friction); 
 
 - Level 1 (ice): m = 40 kg (cart + Ryuka), push applied only over the first 0.8 m, v_release = √(2·(F/m)·0.8). μ = 0.
 - Friction levels: kinetic friction f = μmg (g = 9.81 m/s²). Push phase a₁ = (F − f)/m over 0.8 m; slide phase a₂ = −f/m until v = 0. The parking spot is 4.0 m from the start (3.2 m after the hand-off), so the exact answer is F = 5 f for any m and μ (196 N on the first friction floor, f = 39.24 N); success window ±0.25 m. Simplification: maximum static friction is taken to equal kinetic friction, so the cart moves only when F > f. Very slow runs are sped up on screen (labelled "เร่งเวลา ×n"); the numbers are unchanged.
-- Bonus: launch height h = 1.9 m (1.2 m platform + 0.7 m cart), D = 3.0 m, t = √(2h/g) ≈ 0.62 s, target v ≈ 4.8 m/s (±0.25 m landing tolerance → about 4.4–5.2 m/s). Air resistance ignored; cart seat assumed slippery.
+- Bonus: launch height h = 1.9 m (1.2 m platform + 0.7 m cart), D = 3.0 m, t = √(2h/g) ≈ 0.62 s, target v ≈ 4.8 m/s (±0.25 m landing tolerance → 4.42–5.22 m/s, so 4.5–5.2 on the slider). Air resistance ignored; cart seat assumed slippery.
 
 ## Note on spelling
 
