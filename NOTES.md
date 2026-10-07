@@ -9,7 +9,7 @@ Open `index.html` in any browser (sprites are embedded, no server needed).
 | 48 ด่านที่ 1 | Ryuka asks you to push the cart(?) into the green parking spot in front of the flag. Slider = push force (N), button = ผลัก/เล่น. Free-body diagram shows N, mg, F. |
 | 49 | The push only lasts for the first 0.8 m (a short shove, well under a second at typical forces). Ryuka calls "แค่นี้น่าจะพอให้ไปจอดหน้าธงแล้ว หยุดผลักได้เลย" right after. |
 | 50 | On ice (no friction) the cart keeps going past the flag at constant speed ("บ๊ายบาย~"), disappears behind the panel, and the panic heart bar drains. Player can rewind and retry with a different force or go to the lesson. |
-| 51–52 พาร์ทสอน | "เหมือนจะมีอะไรหายไป?" / "ช่วยกูก่อน" / พ่อมัน names the misconception. |
+| 51–52 พาร์ทสอน | "เหมือนจะมีอะไรหายไป?" / "ช่วยเค้าก่อน👉👈" / พ่อมัน names the misconception. |
 | 53–54 | ΣF = sum of **external** forces; y-forces (N, mg) cancel. |
 | 55 | **Corrected**: shows ΣF = F_push ≠ 0 *while pushing* (a = F/m), then ΣF = 0 after release. Uses the player's own force, not 123456 N. |
 | 56 | **Corrected**: the question is now "ในเมื่อไม่มีใครผลักมันแล้ว ทำไมรถยังเคลื่อนที่ต่อไปได้ล่ะ!?" (no longer "where did the force go?"). Answer: motion doesn't need a force to keep going, and force isn't stored in the cart → v–t graph, inertia, the 1st law, and why real carts stop (friction). Quiz. |
