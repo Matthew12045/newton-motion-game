@@ -32,8 +32,13 @@ const MAX_EVENTS = 300;   // per request
 
 // Story order and Thai names (same as PART_NAME in index.html).
 const PARTS = ['ch1', 'lesson', 'fric', 'fricLesson', 'sandbox', 'bonus', 'projLesson', 'end'];
-const PART_NAME = { ch1: 'ด่านที่ 1', lesson: 'พาร์ทสอน', fric: 'ด่านแรงเสียดทาน', fricLesson: 'พาร์ทสอน : แรงเสียดทาน',
-  sandbox: 'ปรับมวลและ μ เอง', bonus: 'ด่านแถม (โพรเจกไทล์)', projLesson: 'พาร์ทสอน (แถม)', end: 'สรุป' };
+const PART_NAME = { ch1: 'ด่านที่ 1 : กฎข้อที่ 1 ของนิวตัน', lesson: 'บทเรียน : แรงลัพธ์และความเฉื่อย',
+  fric: 'ด่านที่ 1 (รอบที่ 2) : แรงเสียดทาน', fricLesson: 'บทเรียน : แรงเสียดทาน',
+  sandbox: 'ด่านที่ 1 (ท้าทาย) : มวลและสัมประสิทธิ์ความเสียดทาน', bonus: 'ด่านพิเศษ : การเคลื่อนที่แบบโพรเจกไทล์',
+  projLesson: 'บทเรียน : การเคลื่อนที่แบบโพรเจกไทล์', end: 'สรุป' };
+// Part names sent before the October 2026 rename, so older Feedback rows show the current name in the Summary.
+const OLD_PART = { 'ด่านที่ 1': 'ch1', 'พาร์ทสอน': 'lesson', 'ด่านแรงเสียดทาน': 'fric', 'พาร์ทสอน : แรงเสียดทาน': 'fricLesson',
+  'ปรับมวลและ μ เอง': 'sandbox', 'ด่านแถม (โพรเจกไทล์)': 'bonus', 'พาร์ทสอน (แถม)': 'projLesson' };
 const LEVELS = ['ch1', 'fric', 'sandbox', 'bonus'];
 const QUIZZES = 4;
 
@@ -191,7 +196,7 @@ function buildSummary() {
   });
   feedback.forEach(r => { if (r.skipped !== true) P(r).fb = r; });
 
-  const head = ['ห้อง', 'ชื่อ', 'จำนวนครั้งที่เข้าเล่น', 'เล่นล่าสุด', 'ไปถึง', 'จบเกม', 'เวลารวม (นาที)']
+  const head = ['ชั้น', 'ชื่อ', 'จำนวนครั้งที่เข้าเล่น', 'เล่นล่าสุด', 'ไปถึง', 'จบเกม', 'เวลารวม (นาที)']
     .concat(PARTS.map(k => 'นาที: ' + PART_NAME[k]))
     .concat(['ใช้เวลามากที่สุด', 'ควิซถูกตั้งแต่ครั้งแรก', 'ความเข้าใจผิดที่เจอ'])
     .concat(LEVELS.map(k => 'ครั้งที่ลอง: ' + PART_NAME[k]))
@@ -214,7 +219,7 @@ function buildSummary() {
         Array.from(p.tags).join(', ')])
       .concat(LEVELS.map(k => { const L = p.lv[k]; return !L ? '' : L.won ? String(L.won) : L.n + ' (ยังไม่ผ่าน)'; }))
       .concat([avgMoves, typedPct, style, p.fb ? p.fb.difficulty : '', p.fb ? p.fb.enjoyment : '',
-        p.fb ? p.fb.hardest : '', p.fb ? p.fb.question : '']);
+        p.fb ? (OLD_PART[p.fb.hardest] ? PART_NAME[OLD_PART[p.fb.hardest]] : p.fb.hardest) : '', p.fb ? p.fb.question : '']);
   });
 
   // Class average of the minutes columns, to compare each student against.
