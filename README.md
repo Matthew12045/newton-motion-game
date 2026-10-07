@@ -6,7 +6,7 @@ A short interactive story game (in Thai) that teaches Newton's laws of motion an
 
 Open `index.html` in a browser. Everything is in that one file, including the sprites (the source drawings are in `assets/`; after changing one, run `python3 tools/embed_sprites.py` to cut it out and embed it again).
 
-Press ◂ ย้อนกลับ in the dialogue bar (or ←, or scroll up over it) to go back and reread earlier lines and lesson boards; → or a click goes forward again.
+Press ◂ ย้อนกลับ in the dialogue bar (or ←, or scroll up over it) to go back and reread earlier lines and lesson boards; → or a click goes forward again. When you look back at a line from a level (even one you have finished), the panel stays adjustable: change a value (or press ผลัก/เล่น) to rewind time to that point and play on from there with the new value.
 
 ## What it covers
 

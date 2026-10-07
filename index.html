@@ -191,21 +191,33 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .scale[data-k="hardest"] button{font-size:16px;padding:5px 12px}
 #fbQ{font:inherit;font-size:18px;width:100%;height:80px;resize:none;border:2px solid var(--slate);border-radius:14px;padding:8px 14px;color:var(--ink)}
 #fbQ:focus-visible{outline:none;border-color:var(--ink)}
-#rewind{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;background:rgba(120,90,40,.18);font-size:46px;color:#5a4320;letter-spacing:.05em}
-#rewind span{background:rgba(255,255,255,.85);padding:8px 28px;border-radius:999px}
+/* rewinding time, VHS style: cold tint, scanlines, a rolling bright band, a little shake, a blinking ◀◀ */
+#rewind{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;background:rgba(40,70,150,.12)}
+#rewind::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(10,20,50,.13) 0 2px,transparent 2px 5px)}
+#rewind::after{content:"";position:absolute;left:0;right:0;top:-90px;height:70px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.5) 45%,rgba(140,170,255,.3) 60%,transparent);animation:vhsBand .5s linear infinite}
+@keyframes vhsBand{to{transform:translateY(900px)}}
+#rewind span{position:absolute;left:28px;top:78px;font:700 40px/1 var(--f-ui);color:#fff;letter-spacing:.04em;text-shadow:3px 0 rgba(255,0,90,.7),-3px 0 rgba(0,210,255,.7),0 0 10px rgba(0,0,30,.45);animation:vhsBlink .7s steps(1) infinite}
+@keyframes vhsBlink{50%{opacity:.3}}
+#stage.rewinding #cv,#stage.zipping #cv{filter:grayscale(.55) contrast(1.12) brightness(1.04);animation:vhsShake .09s steps(2) infinite}
+#stage.zipping #hist .board,#stage.zipping #htext{animation:vhsShake .09s steps(2) infinite}
+@keyframes vhsShake{50%{transform:translateX(3px)}}
 #thumb{position:absolute;left:720px;top:104px;font-size:120px;line-height:1;pointer-events:none;animation:pop .5s cubic-bezier(.3,1.6,.5,1) both}
 @keyframes pop{from{transform:scale(.2);opacity:0}to{transform:none;opacity:1}}
 /* reading back through earlier lines (the live screen stays underneath, untouched) */
-#hist{position:absolute;inset:0}
+#hist{position:absolute;inset:0;pointer-events:none}
+#hist #hdialog{pointer-events:auto}
 #hist .board,#hist .panel{pointer-events:none}
 #hdialog{cursor:pointer}
 #hist .hbadge{position:absolute;left:44px;top:-15px;background:var(--ink);color:#fff;border-radius:999px;padding:3px 8px 3px 16px;font-size:15px;display:flex;gap:12px;align-items:center;cursor:default}
 #hist .hbadge button{background:#fff;color:var(--ink);border:none;border-radius:999px;font:inherit;font-size:14px;padding:1px 12px;cursor:pointer}
 #stage.reading #title,#stage.reading #board,#stage.reading #dialog,#stage.reading #thumb{visibility:hidden}
 #stage.reading #panel,#stage.reading #rewind{visibility:hidden}
-#stage.reading #cv{filter:none!important}
+#stage.reading.retryPanel #panel{visibility:visible;z-index:6}
+#hretry{color:#FFD54F}
+#stage.reading:not(.zipping) #cv{filter:none!important;animation:none}
+#stage.zipping #rewind{visibility:visible}
 #rotate{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;border-radius:14px;padding:10px 14px;font-size:14px;text-align:center}
-@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 
 <div id="app">
@@ -240,7 +252,7 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
       <button id="next" class="dnav fwd" hidden>คลิกเพื่อไปต่อ ▸</button>
     </div>
 
-    <div id="rewind" hidden><span>⏪ ย้อนเวลา…</span></div>
+    <div id="rewind" hidden><span>◀◀ ย้อนเวลา</span></div>
     <div id="overlay" hidden></div>
 
     <div id="hist" hidden>
@@ -248,7 +260,7 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
       <div id="hpanel"></div>
       <div id="hboard" class="board" hidden inert></div>
       <div id="hdialog" class="dlg">
-        <div class="hbadge">กำลังย้อนอ่าน <span id="hcount"></span><button id="hlive">กลับไปข้อความล่าสุด ⏭</button></div>
+        <div class="hbadge">กำลังย้อนอ่าน <span id="hcount"></span><span id="hretry" hidden>ปรับค่าที่แผงด้านขวาเพื่อลองใหม่จากตรงนี้</span><button id="hlive">กลับไปข้อความล่าสุด ⏭</button></div>
         <div class="dbody">
           <div id="htext" class="dtext"></div>
           <div id="hchoices" class="choices"></div>
@@ -308,9 +320,14 @@ addEventListener('resize', fit); fit();
 /* ---------- tiny event bus + async helpers ---------- */
 let waiters = {};
 function emit(n, d){ const w = waiters[n] || []; waiters[n] = []; w.forEach(f => f(d)); }
-function waitEvent(n){ return new Promise(r => (waiters[n] = waiters[n] || []).push(r)); }
+let tryAbort = null;                   // while a level try runs: rejects when the player retries it from the back view
+function waitEvent(n){
+  const p = new Promise(r => (waiters[n] = waiters[n] || []).push(r));
+  return tryAbort ? Promise.race([p, tryAbort]) : p;
+}
 function waitAny(names){ return Promise.race(names.map(n => waitEvent(n).then(d => ({ name:n, data:d })))); }
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+let runId = 0;                         // bumped by run(): story code from an abandoned run never wakes up
+const sleep = ms => { const id = runId; return new Promise(r => setTimeout(() => { if (id === runId) r(); }, ms)); };
 
 /* ---------- student data → the teacher's Google Sheet (setup: README) ---------- */
 // Paste the Apps Script web-app URL here. Left empty, the data only queues up in this browser.
@@ -430,7 +447,7 @@ const track = {
 
   /* level attempts + how the student picked the value (drag around vs. type an exact number) */
   arm(){ this.panelAt = performance.now(); this.moves = 0; this.typed = false; },
-  onPlay(){ this.armed = { thinkSec:Math.round((performance.now() - this.panelAt)/100)/10, moves:this.moves, typed:this.typed }; },
+  onPlay(inputs){ this.armed = { thinkSec:Math.round((performance.now() - this.panelAt)/100)/10, moves:this.moves, typed:this.typed, inputs }; },
   attempt(inputs, outcome, err){
     const s = this.sec; if (!s) return;
     s.attempts++;
@@ -496,39 +513,43 @@ let advance = null;
 function renderSpeaker(p, who, o = {}){
   p.innerHTML = `<img src="${FACE[who]}" alt="${CAST[who]}"><span class="nm">${CAST[who]}</span>` + (o.panic ? '<div class="hp"><i></i></div>' : '');
 }
-function fillText(t, html){
+function fillText(t, html, still = false){
   t.innerHTML = html;
   t.style.fontSize = '';
   if (t.scrollHeight > 70) t.style.fontSize = '19px';
   if (html.includes('\\(') && window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([t]).catch(() => {});
-  t.classList.remove('in'); void t.offsetWidth; t.classList.add('in');
+  if (!still){ t.classList.remove('in'); void t.offsetWidth; t.classList.add('in'); }
 }
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;   // no flicking through frames
 function say(who, html, o = {}){
   track.line(o.wait === false && !o.choices ? null : html);   // prompts left up while playing aren't reading time
   $('dialog').hidden = false;
   renderSpeaker($('portrait'), who, o);
   fillText($('dtext'), html);
   const line = { who, html, panic:!!o.panic, choices:o.choices || null, picked:null, title:$('title').textContent,
-                 board:snapBoard(), panel:snapPanel(), scene:snapScene(scene) };
+                 board:snapBoard(), panel:snapPanel(), scene:snapScene(scene), level:levelNow, pv:{ ...pval },
+                 step:stepNow, mode:panelMode };
   logLine(line);
   const ch = $('choices'); ch.innerHTML = '';
   $('next').hidden = true; advance = null;
+  const cut = p => tryAbort ? Promise.race([p, tryAbort]) : p;
   if (o.choices){
-    return new Promise(res => o.choices.forEach((c, i) => {
+    return cut(new Promise(res => o.choices.forEach((c, i) => {
       const b = document.createElement('button');
       b.className = 'choice'; b.textContent = c;
       b.onclick = e => { e.stopPropagation(); ch.innerHTML = ''; line.picked = i; track.choice(html, c); res(i); };
       ch.append(b);
-    }));
+    })));
   }
   if (o.wait === false) return Promise.resolve();
   $('next').hidden = false;
-  return new Promise(res => { advance = () => { advance = null; $('next').hidden = true; res(); }; });
+  return cut(new Promise(res => { advance = () => { advance = null; $('next').hidden = true; res(); }; }));
 }
 $('dialog').addEventListener('click', () => advance && advance());
 addEventListener('keydown', e => {
   const a = document.activeElement, typing = a && (a.matches('input, textarea, select') || a.isContentEditable);
   if (reading != null){
+    if (stage.classList.contains('retryPanel') && a && $('panel').contains(a) && e.key !== 'Escape') return;
     if ((e.key === 'Enter' || e.key === ' ') && a && a.tagName === 'BUTTON' && $('hist').contains(a)) return;
     if (['Enter', ' ', 'ArrowRight', 'PageDown'].includes(e.key)){ e.preventDefault(); stepForward(); }
     else if (['ArrowLeft', 'PageUp'].includes(e.key)){ e.preventDefault(); stepBack(); }
@@ -589,7 +610,18 @@ function showLine(i){
     hb.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
   }
   hp.replaceChildren();
-  if (l.panel){
+  const retry = !!(l.panel && l.level && MODES[l.mode] && (l.level === levelNow ? retryTry : LEVEL_STEPS.includes(l.step)));
+  stage.classList.toggle('retryPanel', retry);
+  $('hretry').hidden = !retry;
+  if (retry){
+    if (!panelSaved) panelSaved = { mode:panelMode, pv:{ ...pval }, inputs:!!$('params').querySelector('input:disabled'), play:$('playBtn').disabled };
+    if (panelMode === l.mode) fillPanel(l.pv); else showPanel(l.mode, l.pv, true);
+    $('panel').querySelectorAll('input,#playBtn').forEach(el => el.disabled = false);
+    const ro = l.panel.querySelectorAll('.readout dd'), cap = l.panel.querySelector('.roCap');
+    $('readout').querySelectorAll('dd').forEach((dd, k) => { if (ro[k]) dd.textContent = ro[k].textContent; });
+    $('roCap').hidden = !cap || cap.hidden; if (cap) $('roCap').textContent = cap.textContent;
+    if (l.scene && l.scene.hist && !$('gbox').hidden) drawGraph($('graph'), l.scene.hist, graphKind);
+  } else if (l.panel){
     hp.append(l.panel);
     const g = l.panel.querySelector('canvas'), on = l.panel.querySelector('.gtabs [aria-pressed="true"]');
     if (l.scene && l.scene.hist) drawGraph(g, l.scene.hist, on ? on.dataset.k : 'v');
@@ -601,7 +633,7 @@ function showLine(i){
   $('hprev').disabled = i === 0;
 }
 function stopReading(){
-  if (reading == null) return;
+  if (reading == null || zipping) return;
   reading = null;
   const s = track.sec;
   if (s && track.readFrom != null){
@@ -609,15 +641,28 @@ function stopReading(){
     if (s.line) s.line.at = Math.min(s.active, s.line.at + s.active - track.readFrom);
   }
   track.readFrom = null;
+  if (panelSaved){                            // looked but didn't change anything: the live panel goes back as it was
+    Object.assign(pval, panelSaved.pv);
+    if (panelMode === panelSaved.mode) fillPanel(panelSaved.pv); else showPanel(panelSaved.mode, panelSaved.pv, true);
+    $('params').querySelectorAll('input').forEach(el => el.disabled = panelSaved.inputs);
+    $('playBtn').disabled = panelSaved.play;
+    panelSaved = null;
+  }
   $('hist').hidden = true;
-  stage.classList.remove('reading');
+  stage.classList.remove('reading', 'retryPanel');
   if (!$('next').hidden) $('next').focus({ preventScroll:true });
 }
 function stepBack(){
+  if (zipping) return;
   if (reading != null){ if (reading > 0) showLine(reading - 1); }
-  else if (!$('dialog').hidden && lines.length > 1) showLine(lines.length - 2);
+  else if (!$('dialog').hidden && lines.length > 1){
+    const l = lines[lines.length - 1];          // a push still running with nothing said since: its own line is the one to retry
+    const running = l.played && l.level === levelNow && retryTry;
+    showLine(lines.length - (running || rewinding ? 1 : 2));
+  }
 }
 function stepForward(){
+  if (zipping) return;
   if (reading == null) return;
   if (reading + 1 >= lines.length - 1) stopReading(); else showLine(reading + 1);
 }
@@ -651,12 +696,21 @@ function overlay(html, cls = ''){
 function setTitle(t){ $('title').textContent = t; }
 const SF = (sub = '') => `<span class="sig">Σ</span><span class="vec">F</span>${sub ? `<sub class="math">${sub}</sub>` : ''}`;
 
-async function rewindFx(sc){
-  $('rewind').hidden = false;
-  cv.style.filter = 'sepia(.7) contrast(.9)';
+// tape: lines to run backwards in the dialogue bar while the scene rewinds (newest first)
+async function rewindFx(sc, tape){
+  $('rewind').hidden = false; stage.classList.add('rewinding');
+  const flip = tape && tape.length ? flipBack(tape, 950) : null;
   if (sc && sc.rewind){ sc.rewind(); await waitEvent('rewound'); } else await sleep(1100);
-  cv.style.filter = '';
-  $('rewind').hidden = true;
+  if (flip) await flip;
+  stage.classList.remove('rewinding'); $('rewind').hidden = true;
+}
+async function flipBack(tape, ms){
+  const shown = calm() ? tape.slice(-1) : tape;
+  for (const l of shown){
+    renderSpeaker($('portrait'), l.who);
+    fillText($('dtext'), l.html, true); $('choices').innerHTML = '';
+    await sleep(ms/shown.length);
+  }
 }
 
 /* ---------- parameter panel ---------- */
@@ -671,7 +725,7 @@ const MOTION_ROWS = [['แรงลัพธ์','ΣF<sub>x</sub>','N'],['คว
 const MODES = {
   push:    { params:[['F',-300,300,10]], btn:'ผลัก/เล่น', graph:true, rows:MOTION_ROWS,
              info:() => 'มวลกล่อง + ริวกะ = 40 kg<br>ผลักแค่ช่วง 0.8 m แรก<br>F ติดลบ = ผลักไปทางซ้าย' },
-  fric:    { params:[['F',-300,300,1]], btn:'ผลัก/เล่น', graph:true, rows:MOTION_ROWS,
+  fric:    { params:[['F',0,300,1]], btn:'ผลัก/เล่น', graph:true, rows:MOTION_ROWS,
              info:() => 'มวล m = 40 kg; ผลักแค่ช่วง 0.8 m แรก<br>สัมประสิทธิ์ความเสียดทาน μ = 0.10<br>แรงเสียดทาน f = μmg = 39.24 N' },
   sandbox: { params:[['F',-1000,1000,1],['m',20,80,1],['mu',0,0.25,0.01]], btn:'ผลัก/เล่น', graph:true, rows:MOTION_ROWS,
              info:p => `แรงเสียดทาน f = μmg = ${(p.mu*p.m*G).toFixed(2)} N` },
@@ -683,7 +737,7 @@ const MODES = {
 const num = (x, d) => { const s = x.toFixed(d); return /^-0\.?0*$/.test(s) ? s.slice(1) : s.replace('-', '−'); };
 const pval = { F:40, m:40, mu:0.1, v:3 };
 let panelMode = null, readRows = [];
-function showPanel(mode, init = {}){
+function showPanel(mode, init = {}, quiet = false){
   panelMode = mode;
   const p = $('panel');
   if (!mode){ p.hidden = true; return; }
@@ -699,27 +753,28 @@ function showPanel(mode, init = {}){
   }).join('');
   M.params.forEach(([k, min, max, step]) => {
     const r = $('r_'+k), n = $('n_'+k), dec = (String(step).split('.')[1] || '').length;
-    const set = (val, from) => {
+    const set = (val, from, retrying) => {
       if (!isFinite(val)) val = pval[k];
       val = +Math.min(max, Math.max(min, Math.round(val/step)*step)).toFixed(dec);
       pval[k] = val;
       if (from !== 'r') r.value = val;
       if (from !== 'n') n.value = val.toFixed(dec);
       $('info').innerHTML = M.info(pval);
-      if (scene && scene.onParam) scene.onParam(pval);
+      if (!retrying && scene && scene.onParam) scene.onParam(pval);   // a retry rewinds the scene itself
     };
-    r.addEventListener('input', () => set(+r.value, 'r'));
+    const touched = () => reading != null && retryFromHere();
+    r.addEventListener('input', () => set(+r.value, 'r', touched()));
     r.addEventListener('change', () => { track.moves++; });                  // once per drag / key press
-    n.addEventListener('change', () => { track.moves++; track.typed = true; set(parseFloat(n.value)); });
+    n.addEventListener('change', () => { const retrying = touched(); track.moves++; track.typed = true; set(parseFloat(n.value), undefined, retrying); });
     n.addEventListener('input', () => {                    // live while typing, without rewriting the box
-      const val = parseFloat(n.value);
+      const val = parseFloat(n.value), retrying = touched();
       if (isFinite(val) && val >= min && val <= max){
         pval[k] = val; r.value = val;
         $('info').innerHTML = M.info(pval);
-        if (scene && scene.onParam) scene.onParam(pval);
+        if (!retrying && scene && scene.onParam) scene.onParam(pval);
       }
     });
-    set(pval[k]);
+    set(pval[k], undefined, quiet);
   });
   $('playBtn').textContent = M.btn;
   $('gbox').hidden = !M.graph;
@@ -728,9 +783,112 @@ function showPanel(mode, init = {}){
 }
 function lockPanel(on){
   $('panel').querySelectorAll('input,#playBtn').forEach(el => el.disabled = on);
-  if (!on) track.arm();
+  if (!on){ if (track.keepArm) track.keepArm = false; else track.arm(); }
 }
-$('playBtn').addEventListener('click', () => { track.onPlay(); emit('play', { ...pval }); });
+$('playBtn').addEventListener('click', () => {
+  if (reading != null){ retryFromHere(true); return; }   // from the back view: rewind to that try, then play
+  if (rewinding){ playQueued = true; return; }  // pressed while a retry rewinds: play once the level is ready again
+  const l = lines[lines.length - 1];            // the prompt this try answered keeps the values it was played with
+  if (l && l.level && l.level === levelNow){ l.pv = { ...pval }; l.panel = snapPanel(); l.played = true; }
+  const M = MODES[panelMode];
+  track.onPlay(M ? Object.fromEntries(M.params.map(([k]) => [k, pval[k]])) : null); emit('play', { ...pval });
+});
+// set the panel's values without side effects (no scene update, no logging)
+function fillPanel(v){
+  const M = MODES[panelMode];
+  if (!M) return;
+  M.params.forEach(([k, min, max, step]) => {
+    if (v[k] == null) return;
+    const dec = (String(step).split('.')[1] || '').length;
+    pval[k] = v[k]; $('r_'+k).value = v[k]; $('n_'+k).value = (+v[k]).toFixed(dec);
+  });
+  $('info').innerHTML = M.info(pval);
+}
+
+/* ---------- trying a level again from an earlier line ----------
+   Each try in a level loop starts with newTry(); while it runs, say() and waitEvent() race against its
+   abort promise. Changing a value (or pressing ผลัก/เล่น) while looking back at one of the level's lines
+   rejects the try with RETRY: the loop rewinds the scene and starts a fresh try with the panel's values. */
+const RETRY = Symbol('retry');
+let levelNow = null, stepNow = null, retryTry = null, panelSaved = null, playQueued = false, rewinding = false;
+const LEVEL_STEPS = ['ch1', 'fric', 'sandbox', 'bonus'];
+function newTry(){
+  rewinding = false;
+  const abort = new Promise((_, rej) => { retryTry = rej; });
+  abort.catch(() => {});
+  tryAbort = abort;
+}
+function retryFromHere(play = false){
+  if (zipping){ zipPlay = zipPlay || play; return true; }   // already rewinding back to that line
+  if (!stage.classList.contains('retryPanel') || reading == null) return false;
+  const i = reading, l = lines[i];
+  // the abandoned line's buttons go now (and #next can't take focus from the box being typed in)
+  advance = null; $('next').hidden = true; $('choices').innerHTML = '';
+  if (track.armed && track.armed.inputs) track.attempt(track.armed.inputs, 'retried');   // a push that was still running
+  panelSaved = null;
+  track.choice('ย้อนเวลากลับไป: ' + l.html, 'ย้อนไป ' + PART_NAME[l.step]);   // the rewind itself, in the Choices tab
+  if (l.level === levelNow && retryTry){          // the level being played: abandon the current try
+    stopReading();
+    retryTape = lines.slice(i).reverse();       // the dialogue runs back to this line while the scene rewinds
+    lines.length = i; $('backBtn').hidden = lines.length < 2;   // what came after is undone
+    const reject = retryTry;
+    retryTry = null; tryAbort = null; rewinding = true; playQueued = play;
+    track.arm(); track.keepArm = true;          // think time and edits count from here, for the next try
+    reject(RETRY);
+  } else {                                      // a level that is already over: the tape runs back to this line, then the level starts from it
+    runId++; waiters = {}; endLevel();          // the chapter being left stops now (its sleeps and waits never come back)
+    zipPlay = play;
+    track.arm(); track.keepArm = true;          // think time and edits count from here, for the next try
+    zipBack(lines.length - 1, i).then(() => {
+      advance = null; $('next').hidden = true; $('choices').innerHTML = '';
+      renderSpeaker($('portrait'), l.who, { panic:l.panic });
+      fillText($('dtext'), l.html, true);
+      $('dialog').hidden = false;
+      stopReading();
+      track.leave(false);
+      lines.length = i;                         // what came after is undone
+      run(FULL_RUN.slice(FULL_RUN.indexOf(l.step)), undefined, { resume:true, play:zipPlay });
+    });
+  }
+  return true;
+}
+// the back view runs backwards through the lines from `from` to `to`, like a tape being rewound
+let zipping = false, zipPlay = false, retryTape = null;
+async function zipBack(from, to){
+  zipping = true; stage.classList.add('zipping'); $('rewind').hidden = false;
+  const n = from - to, steps = calm() ? 0 : Math.max(1, Math.min(n, 16)), dt = steps ? Math.max(60, Math.min(150, 1100/steps)) : 400;
+  for (let s = 0; s <= steps; s++){
+    tapeFrame(steps ? Math.round(from - s*n/steps) : to);
+    await new Promise(r => setTimeout(r, dt));
+  }
+  zipping = false; stage.classList.remove('zipping'); $('rewind').hidden = true;
+}
+// one line on the back-view layer: what was on screen then, without its panel or the back-view controls
+function tapeFrame(i){
+  const l = lines[i], hb = $('hboard');
+  reading = i;
+  $('htitle').textContent = l.title;
+  hb.hidden = !l.board;
+  if (l.board){ hb.innerHTML = l.board.html; hb.classList.toggle('top', l.board.top); hb.querySelectorAll('[id]').forEach(el => el.removeAttribute('id')); }
+  $('hpanel').replaceChildren();
+  renderSpeaker($('hportrait'), l.who);
+  fillText($('htext'), l.html, true); $('hchoices').innerHTML = '';
+  $('hcount').textContent = `(${i + 1}/${lines.length})`;
+}
+function waitPlay(){
+  const p = waitEvent('play');
+  if (playQueued){ playQueued = false; setTimeout(() => $('playBtn').click()); }
+  return p;
+}
+// a try was abandoned: clear what it left on screen and rewind the scene to the start
+async function retried(e, sc){
+  if (e !== RETRY) throw e;
+  const th = $('thumb'); if (th) th.remove();
+  const tape = retryTape; retryTape = null;
+  if (sc.phase !== 'ready' || (tape && tape.length > 1)) await rewindFx(sc, tape);
+  if (sc.onParam) sc.onParam(pval);
+}
+function endLevel(){ levelNow = null; retryTry = null; tryAbort = null; playQueued = false; rewinding = false; track.keepArm = false; }
 function updateReadout(){
   if (!scene || !scene.readout) return;
   const vals = scene.readout();
@@ -748,6 +906,8 @@ $('gtabs').addEventListener('click', e => {
   if (!b) return;
   graphKind = b.dataset.k;
   $('gtabs').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  const l = reading != null && stage.classList.contains('retryPanel') ? lines[reading] : null;   // the back view's run, not the live one
+  if (l && l.scene && l.scene.hist) drawGraph($('graph'), l.scene.hist, graphKind);
 });
 function drawGraph(g, hist, k){
   const c = g.getContext('2d');
@@ -955,7 +1115,7 @@ function Level1(){
         this.warp = Math.max(1, (tp + Math.min(tc, 12))/7);
       }
     },
-    rewind(){ this.rw = { t:0, from:Math.max(-2, Math.min(this.box.x, 9.5)) }; this.phase = 'rewind'; this.timeScale = 1; },
+    rewind(){ this.rw = { t:0, from:Math.max(-2, Math.min(this.box.x, 9.5)), onBox:this.ry.y > 0.3 }; this.phase = 'rewind'; this.timeScale = 1; },
     onParam(p){
       if (this.phase === 'stopped' || this.phase === 'idle') this.reset();
       if (this.live && this.phase === 'ready'){ this.m = p.m; this.mu = p.mu; }
@@ -964,10 +1124,15 @@ function Level1(){
     update(dt){
       const c = this.box, r = this.ry, f = this.f(), dir = this.dir;
       if (this.phase === 'ready' && this.live){ this.m = pval.m; this.mu = pval.mu; }
-      if (this.phase === 'rewind'){
-        this.rw.t += dt; const k = Math.min(1, this.rw.t/1.1), e = 1 - (1-k)**3;
-        c.x = this.rw.from + (this.x0 - this.rw.from)*e; r.x = c.x; r.y = 0.7;
-        if (k >= 1){ this.reset(); emit('rewound'); }
+      if (this.phase === 'rewind'){                    // played backwards: slide back, then hop back off the box
+        const w = this.rw, T1 = 0.85, T2 = 1.2;
+        w.t += dt; const k = Math.min(1, w.t/T1), e = k*k*(3 - 2*k);
+        c.x = w.from + (this.x0 - w.from)*e; c.v = 0;
+        if (w.onBox){
+          const h = Math.max(0, Math.min(1, (w.t - T1)/(T2 - T1)));
+          r.x = c.x + (-0.25 - c.x)*h; r.y = 0.7*(1 - h) + Math.sin(h*Math.PI)*0.55;
+        }
+        if (w.t >= (w.onBox ? T2 : T1)){ this.reset(); emit('rewound'); }
         return;
       }
       if (this.phase === 'hop'){
@@ -1183,16 +1348,29 @@ function Projectile(){
       if (this.phase === 'ready') this.v = p.v;
     },
     dropStopper(){ this.stopper = true; this.stopperDrop = 0; },
-    rewind(){ this.reset(); this.phase = 'rewind'; this.rwT = 0; this.rwFrom = 9.5; },
+    rewind(){
+      const from = Math.min(this.box.x, 9.5), flew = this.dots.slice().reverse(), at = { x:this.ry.x, y:this.ry.y };
+      if (flew.length) this.ghost = this.dots;        // the abandoned flight stays as the faint comparison
+      this.reset(); this.phase = 'rewind'; this.rwT = 0; this.rwFrom = from;
+      this.rwPath = flew.length ? [at, ...flew, { x:from, y:this.hLaunch }] : null;
+    },
     pos(t){ return { x:this.edge + this.v*t, y:this.hLaunch - 0.5*G*t*t }; },
     update(dt){
       if (this.stopperDrop < 1) this.stopperDrop = Math.min(1, this.stopperDrop + dt/0.45);
       const c = this.box, r = this.ry;
       switch (this.phase){
-        case 'rewind': {
-          this.rwT += dt; const k = Math.min(1, this.rwT/1.2), e = 1 - (1-k)**3;
-          c.x = this.rwFrom + (0.2 - this.rwFrom)*e; r.x = c.x; r.y = 1.9;
-          if (k >= 1){ this.phase = 'ready'; emit('rewound'); }
+        case 'rewind': {                           // played backwards: the flight, then the slide to the start
+          this.rwT += dt;
+          const P = this.rwPath, T0 = P ? 0.6 : 0;
+          r.rot = 0;
+          if (this.rwT < T0){
+            const f = this.rwT/T0*(P.length - 1), j = Math.floor(f), u = f - j, a = P[j], b = P[Math.min(j + 1, P.length - 1)];
+            c.x = this.rwFrom; r.x = a.x + (b.x - a.x)*u; r.y = a.y + (b.y - a.y)*u;
+          } else {
+            const k = Math.min(1, (this.rwT - T0)/0.8), e = k*k*(3 - 2*k);
+            c.x = this.rwFrom + (0.2 - this.rwFrom)*e; r.x = c.x; r.y = this.hLaunch;
+            if (k >= 1){ this.phase = 'ready'; this.rwPath = null; emit('rewound'); }
+          }
           break;
         }
         case 'still':
@@ -1414,54 +1592,61 @@ const GRAPH_TIP = { v:'พื้นที่ใต้กราฟ v–t = กา
 /* =========================================================
    Story
    ========================================================= */
-async function chapter1(){
+// o.resume: back here from the back view, with the values already on the panel (no intro, time rewinds)
+async function chapter1(o = {}){
   setTitle('ด่านที่ 1 : กฎข้อที่ 1 ของนิวตัน');
   board(null);
   const L = scene = Level1();
-  showPanel('push', { F:memo.F });
+  if (!(o.resume && panelMode === 'push')) showPanel('push', { F:memo.F });
   let tries = 0, lastF = null, toldBack = false;
+  if (o.resume){ await rewindFx(L); L.onParam(pval); }
+  levelNow = L;
   while (true){
-    lockPanel(false);
-    say('ryuka', '“นายลองผลักกล่องให้ไปจอดตรงช่องหน้าธงหน่อย”', { wait:false });
-    const { F } = await waitEvent('play');
-    lockPanel(true);
-    L.start({ F, m:40, mu:0 });
-    if (F === 0){
-      await waitEvent('nomove');
-      track.attempt({ F, m:40, mu:0 }, 'nomove');
-      await say('ryuka', '“ไม่ผลักเลยมันก็นิ่งอยู่อย่างนั้นแหละ ออกแรงหน่อยสิ”');
-      L.reset(); continue;
-    }
-    await waitEvent('pushEnd');
-    if (F < 0){                                   // pushed the wrong way: it still never stops, just on the other side
-      say('ryuka', '“เดี๋ยวๆ ธงอยู่ทางขวานะ! ทำไมผลักไปทางซ้ายล่ะ”', { wait:false });
-      await waitEvent('gone');
-      track.attempt({ F, m:40, mu:0 }, 'wrong-way');
-      await say('ryuka', '“แล้วก็ไม่หยุดอีก ไถลไปทางซ้ายเรื่อยๆ เลย อ้ากกก”', { panic:true });
-      if (!toldBack){
-        toldBack = true;
-        await say('yuan', `“แรงมีทิศทาง เครื่องหมายบอกทิศ F = ${num(F, 0)} N แปลว่าผลักไปทางซ้าย (ทิศ −x) กล่องเลยเร่งไปทางซ้าย พอปล่อยมือก็ไถลไปทางซ้ายด้วยความเร็วคงที่ ไม่หยุดเหมือนกัน”`);
+    newTry();
+    try {
+      lockPanel(false);
+      say('ryuka', '“นายลองผลักกล่องให้ไปจอดตรงช่องหน้าธงหน่อย”', { wait:false });
+      const { F } = await waitPlay();
+      lockPanel(true);
+      L.start({ F, m:40, mu:0 });
+      if (F === 0){
+        await waitEvent('nomove');
+        track.attempt({ F, m:40, mu:0 }, 'nomove');
+        await say('ryuka', '“ไม่ผลักเลยมันก็นิ่งอยู่อย่างนั้นแหละ ออกแรงหน่อยสิ”');
+        L.reset(); continue;
       }
-      await say('yuan', '“ย้อนเวลาให้ ลองผลักไปทางธงด้วยแรงที่เป็นบวกดูนะ”');
+      await waitEvent('pushEnd');
+      if (F < 0){                                   // pushed the wrong way: it still never stops, just on the other side
+        say('ryuka', '“เดี๋ยวๆ ธงอยู่ทางขวานะ! ทำไมผลักไปทางซ้ายล่ะ”', { wait:false });
+        await waitEvent('gone');
+        track.attempt({ F, m:40, mu:0 }, 'wrong-way');
+        await say('ryuka', '“แล้วก็ไม่หยุดอีก ไถลไปทางซ้ายเรื่อยๆ เลย อ้ากกก”', { panic:true });
+        if (!toldBack){
+          toldBack = true;
+          await say('yuan', `“แรงมีทิศทาง เครื่องหมายบอกทิศ F = ${num(F, 0)} N แปลว่าผลักไปทางซ้าย (ทิศ −x) กล่องเลยเร่งไปทางซ้าย พอปล่อยมือก็ไถลไปทางซ้ายด้วยความเร็วคงที่ ไม่หยุดเหมือนกัน”`);
+        }
+        await say('yuan', '“ย้อนเวลาให้ ลองผลักไปทางธงด้วยแรงที่เป็นบวกดูนะ”');
+        await rewindFx(L);
+        continue;
+      }
+      say('ryuka', '“แค่นี้น่าจะพอให้ไปจอดหน้าธงแล้ว หยุดผลักได้เลย”', { wait:false });
+      await waitEvent('passFlag');
+      await waitEvent('gone');
+      track.attempt({ F, m:40, mu:0 }, 'gone');
+      tries++;
+      await say('ryuka', '“อะไรนะ หยุดผลักแล้วหรอ แต่ทำไมมันไม่หยุดอ่ะ อ้ากกก”', { panic:true });
+      if (tries >= 2){
+        const note = lastF != null && lastF !== F ? `รอบนี้ผลัก ${F} N รอบก่อน ${lastF} N ` : '';
+        await say('yuan', `${note}ผลักแรงหรือเบาแค่ไหน พอเลิกผลักแล้วกล่องก็ไม่หยุดเองสักที… ไปดูกันว่าเพราะอะไร`);
+        break;
+      }
+      lastF = F;
+      const pick = await say('yuan', 'จะลองผลักใหม่ด้วยแรงที่ต่างไป หรือไปหาคำตอบเลย?', { choices:['ย้อนเวลา ลองผลักใหม่', 'ไปพาร์ทสอน'] });
+      if (pick === 1) break;
       await rewindFx(L);
-      continue;
-    }
-    say('ryuka', '“แค่นี้น่าจะพอให้ไปจอดหน้าธงแล้ว หยุดผลักได้เลย”', { wait:false });
-    await waitEvent('passFlag');
-    await waitEvent('gone');
-    track.attempt({ F, m:40, mu:0 }, 'gone');
-    tries++;
-    await say('ryuka', '“อะไรนะ หยุดผลักแล้วหรอ แต่ทำไมมันไม่หยุดอ่ะ อ้ากกก”', { panic:true });
-    if (tries >= 2){
-      const note = lastF != null && lastF !== F ? `รอบนี้ผลัก ${F} N รอบก่อน ${lastF} N ` : '';
-      await say('yuan', `${note}ผลักแรงหรือเบาแค่ไหน พอเลิกผลักแล้วกล่องก็ไม่หยุดเองสักที… ไปดูกันว่าเพราะอะไร`);
-      break;
-    }
-    lastF = F;
-    const pick = await say('yuan', 'จะลองผลักใหม่ด้วยแรงที่ต่างไป หรือไปหาคำตอบเลย?', { choices:['ย้อนเวลา ลองผลักใหม่', 'ไปพาร์ทสอน'] });
-    if (pick === 1) break;
-    await rewindFx(L);
+    } catch (e){ await retried(e, L); }
   }
+  endLevel();
   showPanel(null);
 }
 
@@ -1553,57 +1738,62 @@ async function wrongWay(F, f, first){
   }
 }
 
-async function frictionLevel(){
+async function frictionLevel(o = {}){
   setTitle('ด่านที่ 1 ลองใหม่ : มีแรงเสียดทาน');
-  board(null); showPanel(null);
+  board(null);
+  if (!(o.resume && panelMode === 'fric')) showPanel(null);
   const L = scene = Level1();
   L.box.x = 9.5; L.ry.x = 9.5; L.ry.y = 0.7;
-  await say('yuan', '“งั้นมาลองกันเลย ย้อนเวลากลับไป แล้วเปลี่ยนลานน้ำแข็งเป็นพื้นที่มีแรงเสียดทาน”');
-  L.mu = 0.1;
-  await rewindFx(L);
-  showPanel('fric', { F:150 });
-  await say('yuan', '“พื้นนี้มีสัมประสิทธิ์ความเสียดทาน μ = 0.10 กล่องกับริวกะหนัก 40 kg แรงเสียดทานจึงเป็น f = μmg = 0.10 × 40 × 9.81 = 39.24 N”');
-  await say('yuan', '“แรงเสียดทานชี้<b>สวนทางการเคลื่อนที่</b>เสมอ ลองหาแรงผลักที่ทำให้กล่องค่อยๆ ช้าลงแล้วจอดใน<b>ช่องสีเขียวหน้าธง</b>พอดีสิ”');
-  let fails = 0, wrongs = 0;
-  while (true){
-    lockPanel(false);
-    say('ryuka', '“คราวนี้ต้องจอดหน้าธงให้ได้นะ”', { wait:false });
-    const { F } = await waitEvent('play');
-    lockPanel(true);
-    L.start({ F, m:40, mu:0.1 });
-    if (F < 0){
-      const held = -F <= L.f();
-      await (held ? waitEvent('nomove') : waitAny(['stopped', 'gone']));
-      track.attempt({ F, m:40, mu:0.1 }, held ? 'nomove' : 'wrong-way');
-      await wrongWay(F, L.f(), !wrongs++);
-      L.reset(); continue;
-    }
-    if (F <= L.f()){
-      await waitEvent('nomove');
-      track.attempt({ F, m:40, mu:0.1 }, 'nomove');
-      if (F === 0) await say('ryuka', '“ไม่ผลักเลย ก็ไม่ขยับสิ”');
-      else {
-        await say('ryuka', `“ผลักตั้ง ${F} N แต่กล่องไม่ขยับเลย!”`);
-        await say('yuan', `“แรงผลัก ${F} N ยังไม่มากกว่าแรงเสียดทาน 39.24 N พื้นเลยออกแรงเสียดทานต้านเท่ากับแรงผลักพอดี ΣF = 0 กล่องจึงนิ่งอยู่”`);
-      }
-      L.reset(); continue;
-    }
-    const r = await waitAny(['stopped', 'gone']);
-    track.attempt({ F, m:40, mu:0.1 }, stopOutcome(r), r.name === 'stopped' ? r.data.err : null);
-    if (r.name === 'stopped' && r.data.ok){
-      memo.fric = { F };
-      await celebrate(`“เยี่ยม! ผลัก ${F} N กล่องค่อยๆ ช้าลงแล้วจอดคลาดจากจุดจอดแค่ ${Math.abs(r.data.err).toFixed(2)} m”`);
-      break;
-    }
-    fails++;
-    const msg = r.name === 'gone' ? 'ไถลเลยธงไปไกลมาก ลองลดแรงผลัก'
-      : r.data.err < 0 ? `จอดก่อนถึงจุดจอด ${(-r.data.err).toFixed(2)} m ลองเพิ่มแรงผลัก`
-      : `จอดเลยจุดจอดไป ${r.data.err.toFixed(2)} m ลองลดแรงผลัก`;
-    if (fails >= 2) track.hint();
-    if (fails === 2) await say('yuan', `“${msg} ใบ้ให้: หลังปล่อยมือ กล่องต้องไถลต่ออีก 3.2 m และช้าลงด้วย a = f/m = 0.981 m/s² ตอนปล่อยมือจึงควรมีความเร็ว v = √(2 × 0.981 × 3.2) ≈ 2.5 m/s ลองดูค่า v ในแผงด้านขวา”`);
-    else if (fails >= 3) await say('yuan', `“${msg} ช่วงผลัก (F − f)/m × 0.8 ต้องเท่ากับช่วงไถล f/m × 3.2 จึงได้ F = 5 × 39.24 ≈ 196 N”`);
-    else await say('ryuka', `“${msg}”`);
+  if (o.resume){
+    L.mu = 0.1;
+    if (panelMode !== 'fric') showPanel('fric', { F:150 });
+    await rewindFx(L);
+  } else {
+    await say('yuan', '“งั้นมาลองกันเลย ย้อนเวลากลับไป แล้วเปลี่ยนลานน้ำแข็งเป็นพื้นที่มีแรงเสียดทาน”');
+    L.mu = 0.1;
+    await rewindFx(L);
+    showPanel('fric', { F:150 });
+    await say('yuan', '“พื้นนี้มีสัมประสิทธิ์ความเสียดทาน μ = 0.10 กล่องกับริวกะหนัก 40 kg แรงเสียดทานจึงเป็น f = μmg = 0.10 × 40 × 9.81 = 39.24 N”');
+    await say('yuan', '“แรงเสียดทานชี้<b>สวนทางการเคลื่อนที่</b>เสมอ ลองหาแรงผลักที่ทำให้กล่องค่อยๆ ช้าลงแล้วจอดใน<b>ช่องสีเขียวหน้าธง</b>พอดีสิ”');
   }
+  let fails = 0;
+  levelNow = L;
+  while (true){
+    newTry();
+    try {
+      lockPanel(false);
+      say('ryuka', '“คราวนี้ต้องจอดหน้าธงให้ได้นะ”', { wait:false });
+      const { F } = await waitPlay();
+      lockPanel(true);
+      L.start({ F, m:40, mu:0.1 });
+      if (F <= L.f()){
+        await waitEvent('nomove');
+        track.attempt({ F, m:40, mu:0.1 }, 'nomove');
+        if (F === 0) await say('ryuka', '“ไม่ผลักเลย ก็ไม่ขยับสิ”');
+        else {
+          await say('ryuka', `“ผลักตั้ง ${F} N แต่กล่องไม่ขยับเลย!”`);
+          await say('yuan', `“แรงผลัก ${F} N ยังไม่มากกว่าแรงเสียดทาน 39.24 N พื้นเลยออกแรงเสียดทานต้านเท่ากับแรงผลักพอดี ΣF = 0 กล่องจึงนิ่งอยู่”`);
+        }
+        L.reset(); continue;
+      }
+      const r = await waitAny(['stopped', 'gone']);
+      track.attempt({ F, m:40, mu:0.1 }, stopOutcome(r), r.name === 'stopped' ? r.data.err : null);
+      if (r.name === 'stopped' && r.data.ok){
+        memo.fric = { F };
+        await celebrate(`“เยี่ยม! ผลัก ${F} N กล่องค่อยๆ ช้าลงแล้วจอดคลาดจากจุดจอดแค่ ${Math.abs(r.data.err).toFixed(2)} m”`);
+        break;
+      }
+      fails++;
+      const msg = r.name === 'gone' ? 'ไถลเลยธงไปไกลมาก ลองลดแรงผลัก'
+        : r.data.err < 0 ? `จอดก่อนถึงจุดจอด ${(-r.data.err).toFixed(2)} m ลองเพิ่มแรงผลัก`
+        : `จอดเลยจุดจอดไป ${r.data.err.toFixed(2)} m ลองลดแรงผลัก`;
+      if (fails >= 2) track.hint();
+      if (fails === 2) await say('yuan', `“${msg} ใบ้ให้: หลังปล่อยมือ กล่องต้องไถลต่ออีก 3.2 m และช้าลงด้วย a = f/m = 0.981 m/s² ตอนปล่อยมือจึงควรมีความเร็ว v = √(2 × 0.981 × 3.2) ≈ 2.5 m/s ลองดูค่า v ในแผงด้านขวา”`);
+      else if (fails >= 3) await say('yuan', `“${msg} ช่วงผลัก (F − f)/m × 0.8 ต้องเท่ากับช่วงไถล f/m × 3.2 จึงได้ F = 5 × 39.24 ≈ 196 N”`);
+      else await say('ryuka', `“${msg}”`);
+    } catch (e){ await retried(e, L); }
+  }
+  endLevel();
   showPanel(null);
 }
 
@@ -1663,61 +1853,73 @@ async function frictionLesson(){
   board(null);
 }
 
-async function sandbox(){
+async function sandbox(o = {}){
   setTitle('ด่านที่ 1 ท้าทาย : ปรับมวลและ μ เอง');
   board(null);
   const L = scene = Level1();
   L.showMass = true; L.live = true; L.m = 60; L.mu = 0.15; L.reset();
-  showPanel('sandbox', { m:60, mu:0.15 });
-  await say('kay', '“คราวนี้ขนของใส่กล่องเพิ่ม แล้วเปลี่ยนเป็นพื้นที่ฝืดกว่าเดิมดีกว่า”');
-  await say('yuan', '“ปรับ<b>มวล m</b> กับ<b>สัมประสิทธิ์ความเสียดทาน μ</b> ได้ตามใจเลย แล้วหาแรงผลักที่ทำให้กล่องจอดในช่องหน้าธงอีกครั้ง”');
-  let fails = 0, wins = 0, wrongs = 0;
-  while (true){
-    lockPanel(false);
-    say('ryuka', '“ตั้งค่าเสร็จแล้วกดผลักได้เลย”', { wait:false });
-    const p = await waitEvent('play');
-    lockPanel(true);
-    L.start(p);
-    const f = L.f();
-    if (p.F < 0){
-      const held = -p.F <= f;
-      await (held ? waitEvent('nomove') : waitAny(['stopped', 'gone']));
-      track.attempt({ F:p.F, m:p.m, mu:p.mu }, held ? 'nomove' : 'wrong-way');
-      if (p.mu === 0 && !wrongs) await say('ryuka', '“μ = 0 ก็คือลานน้ำแข็ง ผลักไปทางซ้ายก็ไถลไปทางซ้ายไม่หยุดเลย!”');
-      else await wrongWay(p.F, f, !wrongs);
-      wrongs++;
-      L.reset(); continue;
-    }
-    if (p.F <= f){
-      await waitEvent('nomove');
-      track.attempt({ F:p.F, m:p.m, mu:p.mu }, 'nomove');
-      await say('ryuka', p.F === 0 ? '“ไม่ผลักเลย ก็ไม่ขยับสิ”'
-        : `“ไม่ขยับเลย! แรงผลัก ${p.F} N ยังไม่มากกว่าแรงเสียดทาน ${f.toFixed(1)} N”`);
-      L.reset(); continue;
-    }
-    const r = await waitAny(['stopped', 'gone']);
-    track.attempt({ F:p.F, m:p.m, mu:p.mu }, stopOutcome(r), r.name === 'stopped' ? r.data.err : null);
-    if (r.name === 'stopped' && r.data.ok){
-      wins++; fails = 0;
-      await celebrate(`“จอดได้! m = ${p.m} kg, μ = ${p.mu.toFixed(2)} ได้ f = ${f.toFixed(1)} N ส่วนแรงผลัก ${p.F} N ≈ ${(p.F/f).toFixed(2)} เท่าของ f”`);
-      if (wins === 1){
-        await say('yuan', '“สังเกตมั้ย แรงผลักที่พอดีจะประมาณ <b>5 เท่าของ \\(f\\)</b> เสมอ เพราะ \\(\\frac{F-f}{m}\\times 0.8=\\frac{f}{m}\\times 3.2\\) ตัด \\(m\\) ออกได้ เหลือ \\(F=5f\\)&thinsp;”');
-        await say('yuan', '“มวลมากขึ้นหรือพื้นฝืดขึ้น แรงเสียดทาน f = μmg ก็มากขึ้น เลยต้องผลักแรงขึ้นตามไปด้วย”');
-      }
-      const pick = await say('yuan', 'จะลองค่าอื่นอีก หรือไปต่อ?', { choices:['ลองค่าอื่นอีก', 'ไปด่านแถม'] });
-      if (pick === 1) break;
-      L.reset();
-      continue;
-    }
-    fails++;
-    let msg;
-    if (r.name === 'gone') msg = p.mu === 0 ? 'μ = 0 ก็คือลานน้ำแข็งแบบแรก ไม่มีแรงเสียดทาน กล่องเลยไม่หยุด' : 'ไถลเลยธงไปไกลมาก ลองลดแรงผลัก';
-    else msg = r.data.err < 0 ? `จอดก่อนถึงจุดจอด ${(-r.data.err).toFixed(2)} m ลองเพิ่มแรงผลัก` : `จอดเลยจุดจอดไป ${r.data.err.toFixed(2)} m ลองลดแรงผลัก`;
-    if (fails >= 3 && p.mu > 0){
-      track.hint();
-      await say('yuan', `“${msg} ใบ้ให้: ตอนนี้ f = μmg = ${f.toFixed(1)} N ลองใช้สูตรจากพาร์ทสอน (F − f) × 0.8 = f × 3.2”`);
-    } else await say('ryuka', `“${msg}”`);
+  if (o.resume){
+    if (panelMode !== 'sandbox') showPanel('sandbox', { m:60, mu:0.15 });
+    L.m = pval.m; L.mu = pval.mu;
+    await rewindFx(L);
+  } else {
+    showPanel('sandbox', { m:60, mu:0.15 });
+    await say('kay', '“คราวนี้ขนของใส่กล่องเพิ่ม แล้วเปลี่ยนเป็นพื้นที่ฝืดกว่าเดิมดีกว่า”');
+    await say('yuan', '“ปรับ<b>มวล m</b> กับ<b>สัมประสิทธิ์ความเสียดทาน μ</b> ได้ตามใจเลย แล้วหาแรงผลักที่ทำให้กล่องจอดในช่องหน้าธงอีกครั้ง”');
   }
+  let fails = 0, wins = 0, wrongs = 0, explained = false;
+  levelNow = L;
+  while (true){
+    newTry();
+    try {
+      lockPanel(false);
+      say('ryuka', '“ตั้งค่าเสร็จแล้วกดผลักได้เลย”', { wait:false });
+      const p = await waitPlay();
+      lockPanel(true);
+      L.start(p);
+      const f = L.f();
+      if (p.F < 0){
+        const held = -p.F <= f;
+        await (held ? waitEvent('nomove') : waitAny(['stopped', 'gone']));
+        track.attempt({ F:p.F, m:p.m, mu:p.mu }, held ? 'nomove' : 'wrong-way');
+        if (p.mu === 0 && !wrongs) await say('ryuka', '“μ = 0 ก็คือลานน้ำแข็ง ผลักไปทางซ้ายก็ไถลไปทางซ้ายไม่หยุดเลย!”');
+        else await wrongWay(p.F, f, !wrongs);
+        wrongs++;
+        L.reset(); continue;
+      }
+      if (p.F <= f){
+        await waitEvent('nomove');
+        track.attempt({ F:p.F, m:p.m, mu:p.mu }, 'nomove');
+        await say('ryuka', p.F === 0 ? '“ไม่ผลักเลย ก็ไม่ขยับสิ”'
+          : `“ไม่ขยับเลย! แรงผลัก ${p.F} N ยังไม่มากกว่าแรงเสียดทาน ${f.toFixed(1)} N”`);
+        L.reset(); continue;
+      }
+      const r = await waitAny(['stopped', 'gone']);
+      track.attempt({ F:p.F, m:p.m, mu:p.mu }, stopOutcome(r), r.name === 'stopped' ? r.data.err : null);
+      if (r.name === 'stopped' && r.data.ok){
+        wins++; fails = 0;
+        await celebrate(`“จอดได้! m = ${p.m} kg, μ = ${p.mu.toFixed(2)} ได้ f = ${f.toFixed(1)} N ส่วนแรงผลัก ${p.F} N ≈ ${(p.F/f).toFixed(2)} เท่าของ f”`);
+        if (!explained){
+          await say('yuan', '“สังเกตมั้ย แรงผลักที่พอดีจะประมาณ <b>5 เท่าของ \\(f\\)</b> เสมอ เพราะ \\(\\frac{F-f}{m}\\times 0.8=\\frac{f}{m}\\times 3.2\\) ตัด \\(m\\) ออกได้ เหลือ \\(F=5f\\)&thinsp;”');
+          await say('yuan', '“มวลมากขึ้นหรือพื้นฝืดขึ้น แรงเสียดทาน f = μmg ก็มากขึ้น เลยต้องผลักแรงขึ้นตามไปด้วย”');
+          explained = true;
+        }
+        const pick = await say('yuan', 'จะลองค่าอื่นอีก หรือไปต่อ?', { choices:['ลองค่าอื่นอีก', 'ไปด่านแถม'] });
+        if (pick === 1) break;
+        L.reset();
+        continue;
+      }
+      fails++;
+      let msg;
+      if (r.name === 'gone') msg = p.mu === 0 ? 'μ = 0 ก็คือลานน้ำแข็งแบบแรก ไม่มีแรงเสียดทาน กล่องเลยไม่หยุด' : 'ไถลเลยธงไปไกลมาก ลองลดแรงผลัก';
+      else msg = r.data.err < 0 ? `จอดก่อนถึงจุดจอด ${(-r.data.err).toFixed(2)} m ลองเพิ่มแรงผลัก` : `จอดเลยจุดจอดไป ${r.data.err.toFixed(2)} m ลองลดแรงผลัก`;
+      if (fails >= 3 && p.mu > 0){
+        track.hint();
+        await say('yuan', `“${msg} ใบ้ให้: ตอนนี้ f = μmg = ${f.toFixed(1)} N ลองใช้สูตรจากพาร์ทสอน (F − f) × 0.8 = f × 3.2”`);
+      } else await say('ryuka', `“${msg}”`);
+    } catch (e){ await retried(e, L); }
+  }
+  endLevel();
   showPanel(null);
 }
 
@@ -1744,9 +1946,19 @@ async function quiz(id, q, opts, correct, why, wrong, tags){
   }
 }
 
-async function bonus(){
+async function bonus(o = {}){
+  if (o.resume){                             // back here from the back view: the stopper is already down
+    board(null);
+    setTitle('ด่านที่ 1 ลองใหม่ (แถม)');
+    const S = scene = Projectile();
+    S.stopper = true;
+    if (panelMode !== 'speed') showPanel('speed', { v:3 });
+    await rewindFx(S);
+    S.onParam(pval);
+    return bonusLevel(S);
+  }
   showPanel(null); board(null); $('dialog').hidden = true;
-  const o = overlay(`<div class="bigRed">แถม</div><h2>ด่านที่ 1 ลองใหม่</h2><button class="btnDark" id="goBonus">ไปต่อ</button>`);
+  overlay(`<div class="bigRed">แถม</div><h2>ด่านที่ 1 ลองใหม่</h2><button class="btnDark" id="goBonus">ไปต่อ</button>`);
   $('goBonus').focus();
   await new Promise(r => $('goBonus').onclick = r);
   overlay(null);
@@ -1762,36 +1974,44 @@ async function bonus(){
   await say('yuan', '“คราวนี้เปลี่ยนจากตั้งแรงผลัก มาตั้ง<b>ความเร็ว</b>ของกล่องตอนไถลเข้าหาที่กั้นแทน บนแท่นก็เป็นน้ำแข็ง กล่องเลยไถลด้วยความเร็วคงที่จนชนที่กั้น”');
   await say('yuan', '“กล่องหยุดที่ที่กั้นก็จริง แต่ริวกะไม่ได้ติดกับกล่อง… หาความเร็วที่ทำให้ริวกะลอยไปลงเบาะที่ธงพอดีสิ”');
   showPanel('speed', { v:3 });
+  return bonusLevel(S);
+}
+async function bonusLevel(S){
   let fails = 0;
+  levelNow = S;
   while (true){
-    lockPanel(false);
-    say('ryuka', '“เลือกความเร็วดีๆ นะ… ขอร้อง”', { wait:false });
-    const { v } = await waitEvent('play');
-    lockPanel(true);
-    S.start(v);
-    if (v === 0){
-      await waitEvent('still');
-      track.attempt({ v }, 'nomove');
-      await say('ryuka', '“กล่องไม่ขยับ เค้าก็ไม่ไปไหน (ΣF = 0 และนิ่งอยู่ ก็นิ่งต่อไป) ตั้งความเร็วหน่อยสิ”');
-      S.reset(); continue;
-    }
-    const land = await waitEvent('landed');
-    track.attempt({ v }, land.ok ? 'success' : land.err < 0 ? 'short' : 'long', land.err);
-    if (land.ok){
-      const th = document.createElement('div'); th.id = 'thumb'; th.textContent = '👍'; stage.append(th);
-      await say('yuan', `“เยี่ยม! ใช้ความเร็ว ${v.toFixed(1)} m/s ริวกะตกห่างธงแค่ ${Math.abs(land.err).toFixed(2)} m ลงเบาะพอดี”`);
-      th.remove();
-      break;
-    }
-    fails++;
-    const msg = land.err < 0 ? `ตกก่อนถึงธง ${(-land.err).toFixed(2)} m ลองเพิ่มความเร็ว` : `เลยธงไป ${land.err.toFixed(2)} m ลองลดความเร็ว`;
-    if (fails >= 2){
-      track.hint();
-      await say('yuan', `${msg} ใบ้ให้: เวลาที่ลอยอยู่กลางอากาศขึ้นกับความสูงอย่างเดียว t = √(2h/g) = √(2×1.9/9.81) ≈ 0.62 s แล้ว D = v·t`);
-    } else {
-      await say('ryuka', `“${msg}… โอ๊ย”`);
-    }
+    newTry();
+    try {
+      lockPanel(false);
+      say('ryuka', '“เลือกความเร็วดีๆ นะ… ขอร้อง”', { wait:false });
+      const { v } = await waitPlay();
+      lockPanel(true);
+      S.start(v);
+      if (v === 0){
+        await waitEvent('still');
+        track.attempt({ v }, 'nomove');
+        await say('ryuka', '“กล่องไม่ขยับ เค้าก็ไม่ไปไหน (ΣF = 0 และนิ่งอยู่ ก็นิ่งต่อไป) ตั้งความเร็วหน่อยสิ”');
+        S.reset(); continue;
+      }
+      const land = await waitEvent('landed');
+      track.attempt({ v }, land.ok ? 'success' : land.err < 0 ? 'short' : 'long', land.err);
+      if (land.ok){
+        const th = document.createElement('div'); th.id = 'thumb'; th.textContent = '👍'; stage.append(th);
+        await say('yuan', `“เยี่ยม! ใช้ความเร็ว ${v.toFixed(1)} m/s ริวกะตกห่างธงแค่ ${Math.abs(land.err).toFixed(2)} m ลงเบาะพอดี”`);
+        th.remove();
+        break;
+      }
+      fails++;
+      const msg = land.err < 0 ? `ตกก่อนถึงธง ${(-land.err).toFixed(2)} m ลองเพิ่มความเร็ว` : `เลยธงไป ${land.err.toFixed(2)} m ลองลดความเร็ว`;
+      if (fails >= 2){
+        track.hint();
+        await say('yuan', `${msg} ใบ้ให้: เวลาที่ลอยอยู่กลางอากาศขึ้นกับความสูงอย่างเดียว t = √(2h/g) = √(2×1.9/9.81) ≈ 0.62 s แล้ว D = v·t`);
+      } else {
+        await say('ryuka', `“${msg}… โอ๊ย”`);
+      }
+    } catch (e){ await retried(e, S); }
   }
+  endLevel();
   showPanel(null);
   await projectileLesson(S);
 }
@@ -1903,12 +2123,17 @@ function feedback(){
 }
 
 const STEPS = { ch1:chapter1, lesson, fric:frictionLevel, fricLesson:frictionLesson, sandbox, bonus, end:ending };
-async function run(list, entry = 'replay'){
-  overlay(null); waiters = {}; clearLines();
-  track.begin(entry);
-  for (const k of list){
+async function run(list, entry = 'replay', o = {}){
+  overlay(null); waiters = {}; endLevel(); runId++;
+  const th = $('thumb'); if (th) th.remove();
+  if (o.resume){                               // back into an earlier level from the back view (tracking was armed there)
+    rewinding = true; playQueued = !!o.play; track.keepArm = true;
+  } else { clearLines(); track.begin(entry); }
+  $('backBtn').hidden = lines.length < 2;
+  for (const [n, k] of list.entries()){
+    stepNow = k;
     track.enter(k);
-    await STEPS[k]();
+    await STEPS[k](n === 0 ? o : {});
     track.leave(true);
     track.saveProgress(FULL_RUN[FULL_RUN.indexOf(k) + 1] || null);
   }
