@@ -1,9 +1,9 @@
 /* The demo playthrough: every chapter of the game, played the way the game wants to be played —
-   get it wrong first, rewind, read the lesson built from your own numbers, answer the quizzes (one
-   wrong pick on purpose to show the targeted feedback), use the back view to rewind a try, and finish
+   get it wrong first, rewind, read the lesson built from your own numbers, answer the quizzes (a
+   wrong pick on quiz 1 and quiz 4 on purpose to show the targeted feedback), use the back view to rewind a try, and finish
    with the feedback form and the summary.
 
-     node scenario.cjs <workdir> [--dry]
+     node tools/demo-video/scenario.cjs <workdir> [--dry]
 
    writes <workdir>/raw/full.mp4 (1920×1080, 30 fps) and <workdir>/raw/full.json (what was on screen
    at every frame + named marks the editor cuts on). */
@@ -36,6 +36,8 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
       const h = Object.keys(hooks).find(k => new RegExp(k).test(r.state.line));
       const line = r.state.line;
       if (h){ const fn = hooks[h]; delete hooks[h]; await fn(); }
+      else if (!r.state.next && r.state.choices.length)    // a choice nobody handles would spin here forever
+        throw new Error(`talkUntil ${re}: unexpected choice "${r.state.line.slice(0, 60)}" (${r.state.choices.join(' / ')})`);
       if (r.state.line === line && r.state.next) await next();
     }
   }

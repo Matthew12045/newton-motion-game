@@ -80,11 +80,18 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--night
 .quiz .qq{font:600 23px/1.32 var(--en);color:var(--ink);margin:10px 0 12px}
 .quiz .qo{font:400 19px/1.3 var(--en);color:#2c333b;padding:6px 10px;border-radius:9px;margin-top:5px;background:#F3F5F8}
 .quiz .qo b{font-weight:700;margin-right:6px}
+.quiz.wide{width:1170px;padding:12px 20px}
+.quiz.wide .qq{margin:6px 0}
+.quiz.wide .qo{display:inline-block;vertical-align:top;width:calc(50% - 4px);margin:3px 2px 0}
+.quiz.sumEN{width:1800px;padding:14px 20px}
+.sumEN .sg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;margin-top:8px}
+.sumEN .sg div{font:400 19px/1.32 var(--en);color:#2c333b;background:#F3F5F8;border-radius:9px;padding:6px 10px}
+.sumEN .sg b{color:var(--teal);font-weight:700}
 
 /* ---- vertical ---- */
-.vhead{position:absolute;left:0;top:0;width:1080px;display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;padding:0 70px}
+.vhead{position:absolute;left:0;top:0;width:1080px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:0 70px}
 .vhead .kick{font:700 30px/1 var(--en);letter-spacing:.2em;text-transform:uppercase;color:var(--amber)}
-.vhead h1{margin:0;font:800 84px/1.05 var(--en);color:#fff;letter-spacing:-.02em;text-wrap:balance}
+.vhead h1{margin:0;font:800 64px/1.05 var(--en);color:#fff;letter-spacing:-.02em;text-wrap:balance}
 .vcap{position:absolute;left:0;top:0;width:1080px;display:flex;justify-content:center;padding:0 60px}
 .vcap div{font:700 62px/1.16 var(--en);color:#fff;text-align:center;text-wrap:balance;text-shadow:0 4px 20px rgba(0,0,0,.5)}
 .vcap em{font-style:normal;color:var(--gold)}

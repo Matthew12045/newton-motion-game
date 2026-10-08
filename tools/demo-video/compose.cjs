@@ -18,13 +18,19 @@ const SRC_W = 1920, SRC_H = 1080;
 
 const raw = JSON.parse(fs.readFileSync(path.join(WORK, 'raw/full.json'), 'utf8'));
 const FPS = raw.fps;
+// the recording as JPEG frames; extracted again whenever raw/full.mp4 is newer (a re-recording) or the
+// last extraction did not finish (no .done stamp)
 const FRAMES = path.join(WORK, 'frames/full');
-if (!fs.existsSync(path.join(FRAMES, '00001.jpg'))){
+const STAMP = path.join(FRAMES, '.done'), RAW_MP4 = path.join(WORK, 'raw/full.mp4');
+if (!fs.existsSync(STAMP) || fs.statSync(STAMP).mtimeMs < fs.statSync(RAW_MP4).mtimeMs){
+  fs.rmSync(FRAMES, { recursive: true, force: true });
   fs.mkdirSync(FRAMES, { recursive: true });
   console.log('extracting frames…');
-  execFileSync('ffmpeg', ['-v', 'error', '-i', path.join(WORK, 'raw/full.mp4'), '-q:v', '2', path.join(FRAMES, '%05d.jpg')], { stdio: 'inherit' });
+  execFileSync('ffmpeg', ['-v', 'error', '-i', RAW_MP4, '-q:v', '2', path.join(FRAMES, '%05d.jpg')], { stdio: 'inherit' });
+  fs.writeFileSync(STAMP, '');
 }
-const nFrames = fs.readdirSync(FRAMES).length;
+const nFrames = fs.readdirSync(FRAMES).filter(f => f.endsWith('.jpg')).length;
+if (Math.abs(nFrames - raw.frames) > 2) throw new Error(`${FRAMES} has ${nFrames} frames but raw/full.json logged ${raw.frames}: delete the folder and run again`);
 const framePath = f => 'file://' + path.join(FRAMES, String(Math.max(1, Math.min(nFrames, Math.round(f) + 1))).padStart(5, '0') + '.jpg');
 
 /* ---------- what the edit modules get ---------- */
@@ -143,7 +149,7 @@ for (const [g, list] of Object.entries(edit.groupOverlays || {})) list.forEach(o
 function stateAt(T){
   const active = edit.shots.filter(s => T >= s.start && T < s.start + s.dur + 1e-9);
   const layers = [], overlays = [];
-  let topCam = null, topSrc = null;
+  let topCam = null, topSrc = null, topOp = 1;
   active.forEach((s, i) => {
     const u = T - s.start;
     const inA = s.xin ? ease(u/s.xin) : 1;
@@ -153,7 +159,7 @@ function stateAt(T){
       cam = camAt(s, u);
       const f = srcFrame(s, u);
       layers.push({ src: framePath(f), view: cam.view, framed: !!s.framed, s: cam.s, tx: cam.tx, ty: cam.ty, opacity: +op.toFixed(3), filter: s.filter });
-      topCam = cam; topSrc = f;
+      topCam = cam; topSrc = f; topOp = op;
     }
     for (const o of s.overlays || []){
       const d = o.dur ?? (s.dur - (o.at || 0));
@@ -181,7 +187,7 @@ function stateAt(T){
     for (const o of edit.srcOverlays){
       if (shot.noSubs && o.sub) continue;
       if (topSrc < o.f0 || topSrc > o.f1) continue;
-      const a = alphaOf(o, (topSrc - o.f0)/FPS, (o.f1 - o.f0)/FPS);
+      const a = alphaOf(o, (topSrc - o.f0)/FPS, (o.f1 - o.f0)/FPS)*topOp;   // fades with its shot
       overlays.push(placeOverlay(o, a, topCam));
     }
   }

@@ -7,9 +7,9 @@ const LINES = [
   ['จะลองผลักใหม่ด้วยแรง', 'Try again with a different force, or go and find out why?'],
   ['เดี๋ยวๆ ธงอยู่ทางขวา', 'Wait, wait! The flag is to the RIGHT! Why push to the left?'],
   ['แล้วก็ไม่หยุดอีก', 'And it won’t stop again — sliding left forever. Aaah!'],
-  ['แรงมีทิศทาง', 'Force has a direction; the sign tells you which way. F = −80 N is a push to the left (−x). So the box speeds up to the left, and after release it slides left at constant velocity — it doesn’t stop either.'],
+  ['แรงมีทิศทาง', 'The sign gives the direction: F = −80 N pushes left (−x). The box speeds up to the left, then slides left at constant velocity — it doesn’t stop either.'],
   ['ย้อนเวลาให้ ลองผลัก', 'I’ll rewind time. Try a positive push, toward the flag.'],
-  ['รอบนี้ผลัก', 'This time 40 N, last time 120 N. Strong or gentle, once you stop pushing the box never stops by itself… Let’s find out why.'],
+  ['รอบนี้ผลัก', 'This time 40 N, the first time 120 N. Strong or gentle, once you stop pushing the box never stops by itself… Let’s find out why.'],
   ['เหมือนจะมีอะไรหายไป', 'Feels like something’s missing here…?'],
   ['คงจะจำว่าแค่', 'You probably remember it as “ΣF = 0” or “no more pushing” means the object stops, right?'],
   ['ถ้าจริงแบบนั้น', 'If that were true, the box would have stopped long ago. That’s the misconception. Let’s look at the forces one by one.'],
@@ -19,7 +19,7 @@ const LINES = [
   ['พอมือหลุดออกจากกล่อง', 'The moment the hand leaves the box, the push is gone. Only then does the net force drop back to 0.'],
   ['ในเมื่อไม่มีใครผลัก', 'But if nobody’s pushing it anymore, why does the box keep moving?!'],
   ['วัตถุไม่ต้องมีแรง', 'An object doesn’t need a force to keep moving — and the push isn’t stored in the box. When the hand lets go, the force ends right then.'],
-  ['สิ่งที่แรงทิ้งไว้', 'What the force leaves behind is a changed velocity. With ΣF = 0 nothing changes it again, so the box carries on at constant speed. That’s inertia.'],
+  ['สิ่งที่แรงทิ้งไว้', 'What the force leaves behind is a changed velocity. With ΣF = 0 nothing changes it again, so the box carries on at constant velocity. That’s inertia.'],
   ['ลองกดปุ่ม a–t', 'Tap a–t and x–t on the board. After release a–t is 0 and x–t is a straight line, because the velocity is constant.'],
   ['แต่รถเข็นที่ซูเปอร์', 'But a supermarket trolley stops by itself when you let go!?'],
   ['นั่นเพราะพื้นมีแรงเสียดทาน', 'That’s because the floor resists with friction — another external force, so ΣF isn’t 0. But this is ice: almost no friction, so nothing stops the box.'],
@@ -27,11 +27,11 @@ const LINES = [
   ['แรงไม่ได้ติดอยู่ในกล่อง', 'The force isn’t stuck inside the box — it vanished the moment the hand let go. And with nothing resisting, the speed doesn’t drop. Try again!'],
   ['ถูกต้อง! แรงลัพธ์เป็น 0', 'Correct! Net force 0 → acceleration 0 → constant velocity, by the 1st law.'],
   ['งั้นมาลองกันเลย', 'Let’s test it. Rewind time, and swap the ice for a floor with friction.'],
-  ['พื้นนี้มีสัมประสิทธิ์', 'This floor has μ = 0.10 and the box + Ryuka weigh 40 kg, so friction is f = μmg = 0.10 × 40 × 9.81 = 39.24 N.'],
+  ['พื้นนี้มีสัมประสิทธิ์', 'This floor has μ = 0.10 and the box + Ryuka have a mass of 40 kg, so friction is f = μmg = 0.10 × 40 × 9.81 = 39.24 N.'],
   ['แรงเสียดทานชี้สวนทาง', 'Friction always points against the motion. Find the push that makes the box slow down and park right in the green spot by the flag.'],
   ['คราวนี้ต้องจอดหน้าธง', 'This time it has to park by the flag!'],
   ['จอดก่อนถึงจุดจอด', 'Stopped 1.55 m short of the spot — push harder.'],
-  ['จอดเลยจุดจอดไป', 'Stopped 1.30 m past the spot — push less. Hint: after release it must slide 3.2 m more, slowing at a = f/m = 0.981 m/s², so at release it needs v = √(2 × 0.981 × 3.2) ≈ 2.5 m/s. Watch v in the panel.'],
+  ['จอดเลยจุดจอดไป', 'Stopped 1.30 m past — push less. Hint: after release it slides 3.2 m, slowing at f/m = 0.981 m/s², so it needs v = √(2 × 0.981 × 3.2) ≈ 2.5 m/s at release. Watch v in the panel.'],
   ['เยี่ยม! ผลัก', 'Great! At 196 N the box slows down and parks 0.00 m from the mark.'],
   ['แรงเสียดทานเกิดจาก', 'Friction comes from the box rubbing on the floor: f = μN, and on level ground N = mg, so f = μmg.'],
   ['ตอนผลัก ต้องออกแรง', 'While pushing, you must beat friction for the net force to point forward — then the box speeds up.'],
@@ -76,9 +76,18 @@ const QUIZ = [
 ];
 
 const norm = s => s.replace(/^[“"\s]+/, '').trim();
+// the numbers are those of the scripted playthrough: warn when a line's numbers differ from its English
+// (a changed scenario value, or a key that matched a different variant of the line)
+const nums = s => (s.replace(/<[^>]+>/g, '').match(/\d+(?:\.\d+)?/g) || []).sort().join(',');
+const NUM_OK = ['จากสมการที่คุ้นเคย', 'ถ้าเพิ่มความเร็วกล่อง', 'ถูกต้อง! เวลาตก', 'สังเกตมั้ย'];
+const warned = new Set();
 function en(line){
   const s = norm(line);
   const hit = LINES.find(([k]) => s.startsWith(k));
+  if (hit && !NUM_OK.includes(hit[0]) && nums(s) !== nums(hit[1]) && !warned.has(hit[0])){
+    warned.add(hit[0]);
+    console.warn(`subtitle numbers differ for "${s.slice(0, 40)}": ${nums(s)} vs ${nums(hit[1])}`);
+  }
   return hit ? hit[1] : null;
 }
 function quiz(board){
