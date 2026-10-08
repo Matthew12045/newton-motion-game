@@ -5,10 +5,10 @@ the game teaches and how. Nothing here is needed to play the game.
 
 | Version | File | Length | What it is |
 |---|---|---|---|
-| Full playthrough | `walkthrough.mp4` / `walkthrough-th.mp4` | ~9.5 min | Every chapter start to finish. English: subtitles for every line, English quiz cards, and a chip naming the teaching technique as it happens. Thai: the same with Thai chapter cards and chips, no subtitles. |
-| How it teaches | `techniques.mp4` / `techniques-th.mp4` | ~2.5 min | 13 teaching techniques, one short clip each, with a title, an explanation and a caption. For teachers, reviewers and presentations. |
-| Trailer | `trailer.mp4` / `trailer-th.mp4` | ~1 min | Fast cuts with big captions and upbeat music. |
-| Vertical short | `vertical.mp4` / `vertical-th.mp4` | ~40 s | 1080×1920 for Reels / TikTok / Shorts. |
+| Full playthrough | `walkthrough.mp4` / `walkthrough-th.mp4` | 9 min 20 s | Every chapter start to finish. English: subtitles for every line, English quiz cards, and a chip naming the teaching technique as it happens. Thai: the same with Thai chapter cards and chips, no subtitles. |
+| How it teaches | `techniques.mp4` / `techniques-th.mp4` | 2 min 36 s | 13 teaching techniques, one short clip each, with a title, an explanation and a caption. For teachers, reviewers and presentations. |
+| Trailer | `trailer.mp4` / `trailer-th.mp4` | 56 s | Fast cuts with big captions and upbeat music. |
+| Vertical short | `vertical.mp4` / `vertical-th.mp4` | 37 s | 1080×1920 for Reels / TikTok / Shorts. |
 
 All are 1920×1080 (the short is 1080×1920), 30 fps, H.264 + AAC. The music is synthesised by `music.py`
 (no samples), so it is free to use.
@@ -55,7 +55,8 @@ node tools/demo-video/compose.cjs $W techniques-th
 
 `node scenario.cjs $W --dry` runs the playthrough without screenshots (about a minute) to check
 that the script still gets through the game. `compose.cjs … --still=12,40` renders single PNG
-frames at those times instead of the whole video.
+frames at those times instead of the whole video, and `--remix` only redoes the music of a
+finished render (after changing an edit's `music.volume`).
 
 If the game's dialogue changes, update the matching lines in `subs-en.cjs` (the compose step warns
 about lines it can't subtitle). If the flow changes, adjust `scenario.cjs`; the edits cut on its

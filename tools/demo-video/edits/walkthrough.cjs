@@ -112,5 +112,5 @@ module.exports = (ctx, lang = 'en') => {
     srcOverlays.push(...subtitles(ctx, { y: 930, h: 140 }));
     srcOverlays.push(...quizCards(ctx, { x: VIEW.x + 24, y: 110 }));
   }
-  return { w: 1920, h: 1080, shots, srcOverlays, music: { file: 'music/calm_long.wav', volume: 0.32 }, cls: T ? 'th' : '' };
+  return { w: 1920, h: 1080, shots, srcOverlays, music: { file: 'music/calm_long.wav', volume: 0.6 }, cls: T ? 'th' : '' };
 };

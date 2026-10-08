@@ -171,5 +171,5 @@ module.exports = (ctx, lang = 'en') => {
   });
   shots.push({ dur: 7, xin: 0.6, overlays: [{ html: H.card({ kick: lang === 'th' ? 'ลองเล่นได้เลย' : 'Play it', title: X.outro[0], sub: X.outro[1] + '<br><span style="font-size:26px;color:#9fb0bd">' + X.outro[2] + '</span>' }), x: 0, y: 0, fade: 0.6, anim: 'pop' }] });
   const overlays = [{ html: H.brand(lang), x: 70, y: 52, t0: 5.2, t1: -6.6, fade: 0.5, anim: 'fade' }];
-  return { w: 1920, h: 1080, shots, groupOverlays, overlays, music: { file: 'music/calm.wav', volume: 0.5 }, cls: lang === 'th' ? 'th' : '' };
+  return { w: 1920, h: 1080, shots, groupOverlays, overlays, music: { file: 'music/calm.wav', volume: 0.85 }, cls: lang === 'th' ? 'th' : '' };
 };

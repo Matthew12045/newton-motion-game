@@ -228,6 +228,14 @@ function stateAt(T){
 
   const from = +(arg('from') || 0), to = Math.min(TOTAL, +(arg('to') || TOTAL));
   const silent = path.join(OUT, NAME + '.video.mp4');
+  const final = path.join(OUT, NAME + '.mp4');
+  if (process.argv.includes('--remix')){        // only redo the sound of an existing render
+    await browser.close();
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', final, '-map', '0:v', '-c:v', 'copy', silent]);
+    mixMusic(silent, final, TOTAL);
+    console.log('remixed ' + final);
+    return;
+  }
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', String(edit.crf || 19), '-pix_fmt', 'yuv420p', '-r', String(FPS), '-movflags', '+faststart', silent],
     { stdio: ['pipe', 'inherit', 'inherit'] });
@@ -243,15 +251,16 @@ function stateAt(T){
   ff.stdin.end(); await done;
   await browser.close();
 
-  // sound: an optional music bed, faded at both ends
-  const final = path.join(OUT, NAME + '.mp4');
-  if (edit.music){
-    const mus = path.join(WORK, edit.music.file);
-    const dur = (n1 - n0)/FPS, vol = edit.music.volume ?? 0.6;
-    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', silent, '-stream_loop', '-1', '-i', mus,
-      '-filter_complex', `[1:a]atrim=0:${dur.toFixed(3)},volume=${vol},afade=t=in:d=1.2,afade=t=out:st=${Math.max(0, dur - 2.5).toFixed(3)}:d=2.5[a]`,
-      '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', final], { stdio: 'inherit' });
-    fs.unlinkSync(silent);
-  } else fs.renameSync(silent, final);
+  mixMusic(silent, final, (n1 - n0)/FPS);
   console.log(`wrote ${final} in ${((Date.now() - t0)/1000).toFixed(0)} s`);
 })().catch(e => { console.error(e); process.exit(1); });
+
+// sound: an optional music bed, faded at both ends
+function mixMusic(silent, final, dur){
+  if (!edit.music){ fs.renameSync(silent, final); return; }
+  const mus = path.join(WORK, edit.music.file), vol = edit.music.volume ?? 0.6;
+  execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', silent, '-stream_loop', '-1', '-i', mus,
+    '-filter_complex', `[1:a]atrim=0:${dur.toFixed(3)},volume=${vol},afade=t=in:d=1.2,afade=t=out:st=${Math.max(0, dur - 2.5).toFixed(3)}:d=2.5[a]`,
+    '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', final], { stdio: 'inherit' });
+  fs.unlinkSync(silent);
+}
