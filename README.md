@@ -8,6 +8,10 @@ Open `index.html` in a browser. Everything is in that one file, including the sp
 
 Press ◂ ย้อนกลับ in the dialogue bar (or ←, or scroll up over it) to go back and reread earlier lines and lesson boards; → or a click goes forward again. When you look back at a line from a level (even one you have finished), the panel stays adjustable: change a value (or press ผลัก/เล่น) to rewind time to that point and play on from there with the new value.
 
+## Demo videos
+
+`tools/demo-video/` records a full playthrough and edits it into demo videos (full playthrough, a "how it teaches" explainer, a trailer and a vertical short, each in English and Thai). See [its README](tools/demo-video/README.md).
+
 ## What it covers
 
 - **Level 1:** Newton's 1st law. Pushing on frictionless ice; ΣF = 0 means constant velocity, not "stop". The push can be negative (to the left).

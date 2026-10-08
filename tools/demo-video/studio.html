@@ -1,0 +1,141 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>studio</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=Inter:wght@400;500;600;700;800&family=Sarabun:wght@400;600;700&family=Kanit:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai+Looped:wght@300;400;600&family=STIX+Two+Text:ital@0;1&display=swap">
+<style>
+/* The compositor: footage layers (frames of the raw recording) + overlay HTML, one screenshot per
+   output frame. Every position/opacity is set from compose.cjs, so nothing here animates by itself. */
+:root{
+  --ink:#15181c; --night:#0e1316; --night2:#18222a; --teal:#3D7B74; --teal2:#5fa59c; --amber:#FF9F3A; --gold:#FFD54F;
+  --red:#FF3B30; --blue:#2563EB; --slate:#C9D0DA; --paper:#ffffff; --mute:#9fb0bd;
+  --en:"Inter","IBM Plex Sans Thai",sans-serif; --th:"IBM Plex Sans Thai","Inter",sans-serif; --game:"IBM Plex Sans Thai Looped","IBM Plex Sans Thai",sans-serif;
+  --math:"STIX Two Text",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--night)}
+#canvas{position:absolute;left:0;top:0;overflow:hidden;background:radial-gradient(120% 90% at 30% 20%, #1d2a33 0%, #10171c 55%, #0b1013 100%)}
+#canvas.th{--en:"IBM Plex Sans Thai","Inter",sans-serif}
+.layer{position:absolute;overflow:hidden;background:#fff}
+.layer img{position:absolute;left:0;top:0;transform-origin:0 0;display:block}
+.layer.framed{border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06)}
+.ov{position:absolute;left:0;top:0;will-change:opacity,transform}
+
+/* ---- subtitle band (walkthrough) ---- */
+.band{position:absolute;left:0;top:0;width:1920px;height:170px;display:flex;align-items:center;justify-content:center;padding:0 200px}
+.sub{font:500 33px/1.34 var(--en);color:#f4f7f9;text-align:center;text-wrap:balance;letter-spacing:.003em}
+.sub.long{font-size:28px;line-height:1.32}
+.sub .who{display:inline-block;font-weight:700;font-size:.62em;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px 2px;border-radius:7px;margin-right:12px;vertical-align:.32em}
+.who.ryuka{background:#FF6B6B;color:#2a0c0c}.who.yuan{background:var(--teal2);color:#06201d}.who.kay{background:#7aa7ff;color:#081a3d}
+.chip{display:inline-flex;align-items:center;gap:10px;font:700 19px/1 var(--en);letter-spacing:.08em;text-transform:uppercase;color:#1b1204;background:var(--amber);border-radius:999px;padding:9px 18px 8px}
+.chip i{font-style:normal;font-weight:500;letter-spacing:.01em;text-transform:none;color:#3b2606}
+.chap{font:600 18px/1 var(--en);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+
+/* ---- full-screen cards ---- */
+.card{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px}
+.card .kick{font:700 22px/1 var(--en);letter-spacing:.22em;text-transform:uppercase;color:var(--amber)}
+.card h1{margin:0;font:800 92px/1.04 var(--en);color:#fff;letter-spacing:-.02em;text-wrap:balance}
+.card h2{margin:0;font:500 34px/1.35 var(--en);color:#c7d3dc;text-wrap:balance;max-width:1300px}
+.card .thai{font:400 40px/1.3 var(--game);color:#e8eef2}
+.card .rule{width:120px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--amber))}
+
+/* ---- explainer: left column ---- */
+.col{position:absolute;display:flex;flex-direction:column;gap:20px;color:#fff}
+.col .num{font:800 120px/0.9 var(--en);color:transparent;-webkit-text-stroke:2px rgba(255,159,58,.9);letter-spacing:-.03em}
+.col .tag{font:700 17px/1 var(--en);letter-spacing:.2em;text-transform:uppercase;color:var(--amber)}
+.col h3{margin:0;font:800 50px/1.06 var(--en);letter-spacing:-.015em;text-wrap:balance}
+.col p{margin:0;font:400 25px/1.45 var(--en);color:#c9d5de;text-wrap:pretty}
+.col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.col li{font:500 22px/1.38 var(--en);color:#e9eff3;padding-left:30px;position:relative;text-wrap:pretty}
+.col li::before{content:"";position:absolute;left:2px;top:.5em;width:12px;height:12px;border-radius:3px;background:var(--teal2)}
+.col li b{color:var(--gold);font-weight:600}
+.col .law{font:italic 400 30px/1.3 var(--math);color:var(--gold)}
+.caption{display:inline-block;font:500 27px/1.35 var(--en);color:#fff;background:rgba(14,19,22,.86);border-left:6px solid var(--amber);padding:14px 22px;border-radius:10px;max-width:1280px;text-wrap:pretty;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.caption b{color:var(--gold);font-weight:700}
+
+/* ---- highlight ring / arrow over the footage ---- */
+.ring{position:absolute;border:5px solid var(--amber);border-radius:22px;box-shadow:0 0 0 6px rgba(255,159,58,.22),0 0 30px rgba(255,159,58,.45)}
+.ringLabel{position:absolute;font:700 22px/1.2 var(--en);color:#1b1204;background:var(--amber);border-radius:10px;padding:7px 14px;white-space:nowrap}
+
+/* ---- trailer type ---- */
+.big{display:inline-block;font:800 100px/1.05 var(--en);color:#fff;letter-spacing:-.03em;text-align:center;text-wrap:balance;background:rgba(14,19,22,.9);padding:20px 44px 26px;border-radius:26px;box-shadow:0 16px 40px rgba(0,0,0,.3)}
+.big em{font-style:normal;color:var(--gold)}
+.mid{display:inline-block;font:700 54px/1.16 var(--en);color:#fff;text-align:center;text-wrap:balance;background:rgba(14,19,22,.9);padding:16px 36px 20px;border-radius:22px;box-shadow:0 14px 36px rgba(0,0,0,.3);max-width:1500px}
+.mid em{font-style:normal;color:var(--gold)}
+.scrim{position:absolute;left:0;top:0;background:linear-gradient(180deg,rgba(8,12,15,.0) 0%,rgba(8,12,15,.55) 100%)}
+.scrimTop{position:absolute;left:0;top:0;background:linear-gradient(0deg,rgba(8,12,15,.0) 0%,rgba(8,12,15,.6) 100%)}
+.pill{display:inline-block;font:700 26px/1 var(--en);letter-spacing:.06em;text-transform:uppercase;color:#1b1204;background:var(--gold);border-radius:999px;padding:12px 24px 11px}
+
+/* ---- progress dots (explainer) ---- */
+.prog{display:flex;gap:10px;align-items:center}
+.prog i{display:block;width:34px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)}
+.prog i.on{background:var(--amber)}
+.prog i.done{background:rgba(255,159,58,.45)}
+.brand{font:600 20px/1 var(--en);color:#9fb0bd;letter-spacing:.04em}
+.brand b{color:#fff;font-weight:700}
+
+/* ---- quiz translation ---- */
+.quiz{width:600px;background:rgba(255,255,255,.96);border-radius:20px;padding:20px 24px;box-shadow:0 14px 40px rgba(0,0,0,.35);border:3px solid var(--ink)}
+.quiz .qh{font:700 15px/1 var(--en);letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.quiz .qq{font:600 23px/1.32 var(--en);color:var(--ink);margin:10px 0 12px}
+.quiz .qo{font:400 19px/1.3 var(--en);color:#2c333b;padding:6px 10px;border-radius:9px;margin-top:5px;background:#F3F5F8}
+.quiz .qo b{font-weight:700;margin-right:6px}
+
+/* ---- vertical ---- */
+.vhead{position:absolute;left:0;top:0;width:1080px;display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;padding:0 70px}
+.vhead .kick{font:700 30px/1 var(--en);letter-spacing:.2em;text-transform:uppercase;color:var(--amber)}
+.vhead h1{margin:0;font:800 84px/1.05 var(--en);color:#fff;letter-spacing:-.02em;text-wrap:balance}
+.vcap{position:absolute;left:0;top:0;width:1080px;display:flex;justify-content:center;padding:0 60px}
+.vcap div{font:700 62px/1.16 var(--en);color:#fff;text-align:center;text-wrap:balance;text-shadow:0 4px 20px rgba(0,0,0,.5)}
+.vcap em{font-style:normal;color:var(--gold)}
+/* Thai: no tracking or caps on labels (they break the vowel/tone marks), and a touch larger */
+#canvas.th .kick,#canvas.th .tag,#canvas.th .chap,#canvas.th .chip,#canvas.th .vhead .kick,#canvas.th .quiz .qh,#canvas.th .pill{letter-spacing:.01em;text-transform:none}
+#canvas.th .card .kick{font-size:30px;font-weight:600}
+#canvas.th .col .tag{font-size:24px;font-weight:600}
+#canvas.th .col p{font-size:26px;line-height:1.55}
+#canvas.th .chap{font-size:20px;font-weight:500}
+#canvas.th .chip{font-size:20px;font-weight:600}
+#canvas.th .vhead .kick{font-size:34px;font-weight:600}
+#canvas.th .card h1,#canvas.th .col h3,#canvas.th .big,#canvas.th .vhead h1{letter-spacing:0;line-height:1.2}
+</style>
+<div id="canvas"></div>
+<script>
+const cv = document.getElementById('canvas');
+const pool = [], ovs = new Map();
+window.setup = (w, h, cls) => { cv.style.width = w + 'px'; cv.style.height = h + 'px'; cv.className = cls || ''; };
+window.apply = async st => {
+  // footage layers
+  const waits = [];
+  st.layers.forEach((L, i) => {
+    let p = pool[i];
+    if (!p){ p = document.createElement('div'); p.className = 'layer'; p.innerHTML = '<img>'; cv.prepend(p); pool[i] = p; }
+    p.style.display = '';
+    p.className = 'layer' + (L.framed ? ' framed' : '');
+    p.style.left = L.view.x + 'px'; p.style.top = L.view.y + 'px';
+    p.style.width = L.view.w + 'px'; p.style.height = L.view.h + 'px';
+    p.style.opacity = L.opacity;
+    p.style.zIndex = i;
+    const img = p.firstChild;
+    img.style.transform = `translate(${L.tx}px,${L.ty}px) scale(${L.s})`;
+    img.style.filter = L.filter || '';
+    if (img.getAttribute('src') !== L.src){ img.src = L.src; waits.push(img.decode().catch(() => {})); }
+  });
+  for (let i = st.layers.length; i < pool.length; i++) pool[i].style.display = 'none';
+  // overlays
+  const keep = new Set();
+  for (const o of st.overlays){
+    keep.add(o.id);
+    let e = ovs.get(o.id);
+    if (!e){ e = document.createElement('div'); e.className = 'ov'; cv.append(e); ovs.set(o.id, e); }
+    if (e._html !== o.html){ e.innerHTML = o.html; e._html = o.html; }
+    e.style.zIndex = 100 + (o.z || 0);
+    e.style.opacity = o.opacity;
+    e.style.transform = `translate(${o.x || 0}px,${(o.y || 0) + (o.dy || 0)}px) scale(${o.scale || 1})`;
+    e.style.transformOrigin = o.origin || '50% 50%';
+    if (o.w) e.style.width = o.w + 'px'; else e.style.width = '';
+    if (o.h) e.style.height = o.h + 'px'; else e.style.height = '';
+  }
+  for (const [id, e] of ovs) if (!keep.has(id)){ e.remove(); ovs.delete(id); }
+  await Promise.all(waits);
+};
+</script>
