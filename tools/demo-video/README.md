@@ -56,7 +56,8 @@ node tools/demo-video/compose.cjs $W techniques-th
 `node scenario.cjs $W --dry` runs the playthrough without screenshots (about a minute) to check
 that the script still gets through the game. `compose.cjs … --still=12,40` renders single PNG
 frames at those times instead of the whole video, and `--remix` only redoes the music of a
-finished render (after changing an edit's `music.volume`).
+finished render (after changing an edit's `music.volume`). `--dump` writes `out/<name>.timeline.md`: every shot's source range and
+every overlay's text with its start and end time, handy for checking captions against the footage.
 
 If the game's dialogue changes, update the matching lines in `subs-en.cjs` (the compose step warns
 about lines it can't subtitle). If the flow changes, adjust `scenario.cjs`; the edits cut on its

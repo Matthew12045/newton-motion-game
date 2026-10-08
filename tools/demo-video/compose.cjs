@@ -213,6 +213,27 @@ function stateAt(T){
   const OUT = path.join(WORK, 'out');
   fs.mkdirSync(OUT, { recursive: true });
 
+  // --dump: what is on screen when, as text (for reviewing captions against the footage)
+  if (process.argv.includes('--dump')){
+    const text = h => h.replace(/<br\s*\/?>/g, ' / ').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+    const near = f => { let best = null; for (const [k, v] of Object.entries(marks)) if (v <= f && (!best || v > best[1])) best = [k, v]; return best ? `${best[0]}+${((f - best[1])/FPS).toFixed(1)}s` : 'start'; };
+    const lines = [`# ${NAME} — ${TOTAL.toFixed(1)} s`, '', '## Shots', ''];
+    edit.shots.forEach((s, i) => lines.push(`- #${i} ${s.start.toFixed(1)}–${(s.start + s.dur).toFixed(1)} s: ` +
+      (s.segs ? s.segs.map(g => `src ${g.a}–${g.b} (${near(g.a)} → ${near(g.b)}) ×${g.sp}`).join(', ') : s.freeze != null ? `freeze ${s.freeze}` : 'card')));
+    const open = new Map(), spans = [];
+    for (let T = 0; T <= TOTAL + 0.05; T += 0.1){
+      const now = new Map(stateAt(Math.min(T, TOTAL - 1e-6)).overlays.filter(o => o.opacity > 0.05).map(o => [o.id + '|' + o.html, o]));
+      for (const [k, o] of now) if (!open.has(k)) open.set(k, { t0: T, html: o.html });
+      for (const [k, v] of open) if (!now.has(k)){ spans.push({ ...v, t1: T }); open.delete(k); }
+    }
+    for (const v of open.values()) spans.push({ ...v, t1: TOTAL });
+    lines.push('', '## On-screen text', '');
+    spans.sort((a, b) => a.t0 - b.t0).forEach(v => { const t = text(v.html); if (t) lines.push(`- ${v.t0.toFixed(1)}–${v.t1.toFixed(1)} s: ${t}`); });
+    fs.writeFileSync(path.join(OUT, NAME + '.timeline.md'), lines.join('\n') + '\n');
+    console.log('wrote ' + path.join(OUT, NAME + '.timeline.md'));
+    await browser.close();
+    return;
+  }
   const stills = arg('still');
   if (stills){
     for (const sec of stills.split(',').map(Number)){
