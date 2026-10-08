@@ -19,15 +19,31 @@ const SRC_W = 1920, SRC_H = 1080;
 const raw = JSON.parse(fs.readFileSync(path.join(WORK, 'raw/full.json'), 'utf8'));
 const FPS = raw.fps;
 // the recording as JPEG frames; extracted again whenever raw/full.mp4 is newer (a re-recording) or the
-// last extraction did not finish (no .done stamp)
+// last extraction did not finish (no .done stamp). A lock file keeps two renders started together from
+// extracting over each other: the second one waits, then finds the stamp.
 const FRAMES = path.join(WORK, 'frames/full');
-const STAMP = path.join(FRAMES, '.done'), RAW_MP4 = path.join(WORK, 'raw/full.mp4');
-if (!fs.existsSync(STAMP) || fs.statSync(STAMP).mtimeMs < fs.statSync(RAW_MP4).mtimeMs){
-  fs.rmSync(FRAMES, { recursive: true, force: true });
-  fs.mkdirSync(FRAMES, { recursive: true });
-  console.log('extracting frames…');
-  execFileSync('ffmpeg', ['-v', 'error', '-i', RAW_MP4, '-q:v', '2', path.join(FRAMES, '%05d.jpg')], { stdio: 'inherit' });
-  fs.writeFileSync(STAMP, '');
+const STAMP = path.join(FRAMES, '.done'), RAW_MP4 = path.join(WORK, 'raw/full.mp4'), LOCK = FRAMES + '.lock';
+const fresh = () => fs.existsSync(STAMP) && fs.statSync(STAMP).mtimeMs >= fs.statSync(RAW_MP4).mtimeMs;
+if (!fresh()){
+  fs.mkdirSync(path.dirname(FRAMES), { recursive: true });
+  const nap = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  for (;;){
+    try { fs.closeSync(fs.openSync(LOCK, 'wx')); break; }
+    catch (e){
+      if (e.code !== 'EEXIST') throw e;
+      if (Date.now() - fs.statSync(LOCK).mtimeMs > 20*60e3) fs.rmSync(LOCK, { force: true });   // left by a crashed run
+      else nap(2000);
+    }
+  }
+  try {
+    if (!fresh()){
+      fs.rmSync(FRAMES, { recursive: true, force: true });
+      fs.mkdirSync(FRAMES, { recursive: true });
+      console.log('extracting frames…');
+      execFileSync('ffmpeg', ['-v', 'error', '-i', RAW_MP4, '-q:v', '2', path.join(FRAMES, '%05d.jpg')], { stdio: 'inherit' });
+      fs.writeFileSync(STAMP, '');
+    }
+  } finally { fs.rmSync(LOCK, { force: true }); }
 }
 const nFrames = fs.readdirSync(FRAMES).filter(f => f.endsWith('.jpg')).length;
 if (Math.abs(nFrames - raw.frames) > 2) throw new Error(`${FRAMES} has ${nFrames} frames but raw/full.json logged ${raw.frames}: delete the folder and run again`);

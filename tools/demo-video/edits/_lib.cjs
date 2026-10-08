@@ -73,11 +73,16 @@ function subtitles(ctx, o = {}){
 /* the English quiz next to the board, while each quiz is up */
 function quizCards(ctx, o = {}){
   const out = [];
+  let prev = null;
   for (const p of ctx.periods('board')){
     const k = Object.keys(QUIZ_OPTS).find(k => (p.v || '').startsWith(k));
-    if (!k) continue;
+    if (!k){ prev = null; continue; }
     const q = quiz(p.v).replace(/^Quiz: (.)/, (_, c) => c.toUpperCase());
-    out.push({ f0: p.f0, f1: p.f1, html: H.quiz(q, QUIZ_OPTS[k], 'en', !!o.wide), x: o.x ?? 40, y: o.y ?? 120, fade: 0.3, anim: o.wide ? 'up' : 'left', z: 5 });
+    // the wide card sits on the game's own dialogue text: never let the two show through each other, so it
+    // swaps straight to the next quiz and otherwise only fades with its shot
+    const fades = o.wide ? { fadeIn: prev && prev.f1 === p.f0 ? 0 : 0.3, fadeOut: 0 } : { fade: 0.3 };
+    out.push({ f0: p.f0, f1: p.f1, html: H.quiz(q, QUIZ_OPTS[k], 'en', !!o.wide), x: o.x ?? 40, y: o.y ?? 120, ...fades, anim: o.wide ? 'up' : 'left', z: 5 });
+    prev = p;
   }
   return out;
 }

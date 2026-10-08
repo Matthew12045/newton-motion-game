@@ -11,7 +11,7 @@ const LINES = [
   ['ย้อนเวลาให้ ลองผลัก', 'I’ll rewind time. Try a positive push, toward the flag.'],
   ['รอบนี้ผลัก', 'This time 40 N, the first time 120 N. Strong or gentle, once you stop pushing the box never stops by itself… Let’s find out why.'],
   ['เหมือนจะมีอะไรหายไป', 'Feels like something’s missing here…?'],
-  ['คงจะจำว่าแค่', 'You probably remember it as “ΣF = 0” or “no more pushing” means the object stops, right?'],
+  ['คงจะจำว่าแค่', 'You probably remember that “ΣF = 0”, or “no more pushing”, means the object stops — right?'],
   ['ถ้าจริงแบบนั้น', 'If that were true, the box would have stopped long ago. That’s the misconception. Let’s look at the forces one by one.'],
   ['จากสมการที่คุ้นเคย', 'Look closely at the familiar equation: ΣF is the sum of the external forces on the box. While pushing there are three.'],
   ['แรงในแนวแกน y', 'The y-forces cancel — always 0. Only the push along x is left.'],
@@ -31,7 +31,7 @@ const LINES = [
   ['แรงเสียดทานชี้สวนทาง', 'Friction always points against the motion. Find the push that makes the box slow down and park right in the green spot by the flag.'],
   ['คราวนี้ต้องจอดหน้าธง', 'This time it has to park by the flag!'],
   ['จอดก่อนถึงจุดจอด', 'Stopped 1.55 m short of the spot — push harder.'],
-  ['จอดเลยจุดจอดไป', 'Stopped 1.30 m past — push less. Hint: after release it slides 3.2 m, slowing at f/m = 0.981 m/s², so it needs v = √(2 × 0.981 × 3.2) ≈ 2.5 m/s at release. Watch v in the panel.'],
+  ['จอดเลยจุดจอดไป', 'Stopped 1.30 m past — push less. Hint: after release it slides 3.2 m, slowing at f/m = 0.981 m/s², so it needs v = √(2 × 0.981 × 3.2) ≈ 2.5 m/s at release. Watch v in the panel.'],
   ['เยี่ยม! ผลัก', 'Great! At 196 N the box slows down and parks 0.00 m from the mark.'],
   ['แรงเสียดทานเกิดจาก', 'Friction comes from the box rubbing on the floor: f = μN, and on level ground N = mg, so f = μmg.'],
   ['ตอนผลัก ต้องออกแรง', 'While pushing, you must beat friction for the net force to point forward — then the box speeds up.'],
@@ -79,7 +79,7 @@ const norm = s => s.replace(/^[“"\s]+/, '').trim();
 // the numbers are those of the scripted playthrough: warn when a line's numbers differ from its English
 // (a changed scenario value, or a key that matched a different variant of the line)
 const nums = s => (s.replace(/<[^>]+>/g, '').match(/\d+(?:\.\d+)?/g) || []).sort().join(',');
-const NUM_OK = ['จากสมการที่คุ้นเคย', 'ถ้าเพิ่มความเร็วกล่อง', 'ถูกต้อง! เวลาตก', 'สังเกตมั้ย'];
+const NUM_OK = ['จากสมการที่คุ้นเคย', 'ถูกต้อง! เวลาตก', 'สังเกตมั้ย'];
 const warned = new Set();
 function en(line){
   const s = norm(line);

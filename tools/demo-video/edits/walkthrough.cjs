@@ -12,7 +12,7 @@ module.exports = (ctx, lang = 'en') => {
   const card = (kick, title, sub, thai, dur = 3.2) => shots.push({ dur, overlays: [
     { html: H.card({ kick, title, sub, thai }), x: 0, y: 0, fade: 0.45, anim: 'pop' }] });
   const label = (text, dur) => ({ html: `<div style="width:${VIEW.w}px">${H.chap(text)}</div>`, x: VIEW.x + 6, y: VIEW.y + VIEW.h + 18, fade: 0.4, anim: 'fade' });
-  const part = (a, b, name) => shots.push({ src: [[a, b, 1]], view: VIEW, framed: true, fadeOut: 0.25, fadeInBlack: 0.25, overlays: [label(name)] });
+  const part = (a, b, name, src = [[a, b, 1]]) => shots.push({ src, view: VIEW, framed: true, fadeOut: 0.25, fadeInBlack: 0.25, overlays: [label(name)] });
 
   const L = T ? {
     intro: ['เดโมเกม · เล่นครบทุกบท', 'ริวกะกับกล่องที่ไม่ยอมหยุด', 'เกมเนื้อเรื่องสั้นๆ ที่สอนกฎการเคลื่อนที่ของนิวตัน<br>เล่นให้ดูตั้งแต่ต้นจนจบ พร้อมชื่อเทคนิคการสอนในแต่ละช่วง'],
@@ -48,7 +48,8 @@ module.exports = (ctx, lang = 'en') => {
   cuts.forEach(([a, b], i) => {
     const [k, t, s] = C[i];
     card(k, t, s, null, i === 0 ? 2.6 : 3.0);
-    part(a, b, `${k} · ${t}`);
+    // the closing summary is a still screen full of text: hold it about 3× longer so it can be read
+    part(a, b, `${k} · ${t}`, i === cuts.length - 1 ? [[a, m('summary', 1), 1], [m('summary', 1), b, 0.3]] : undefined);
   });
 
   const outro = T ? ['เปิด index.html ในเบราว์เซอร์ได้เลย', 'ไม่ต้องติดตั้ง ไม่ต้องสมัครบัญชี · ใช้ได้ทั้งคอมพิวเตอร์และแท็บเล็ต',
@@ -64,7 +65,7 @@ module.exports = (ctx, lang = 'en') => {
     ['ch1-rewind1', -0.2, 'ย้อนเวลา', 'ลองใหม่ได้ทันที ไม่มีบทลงโทษ'],
     ['ch1-sign', 0, 'เวกเตอร์', 'แรงติดลบ = ทิศไปทางซ้าย'],
     ['lesson-misconception', 0, 'เผชิญหน้ากับความเข้าใจผิด', '“ΣF = 0 แปลว่าหยุด” พูดออกมาตรงๆ แล้วพิสูจน์ว่าผิด'],
-    ['lesson-fbd', 0, 'แผนภาพวัตถุอิสระ', 'ดูทีละแรง แรงในแกน y หักล้างกัน'],
+    ['lesson-fbd', 5, 'แผนภาพวัตถุอิสระ', 'ดูทีละแรง แรงในแกน y หักล้างกัน'],
     ['lesson-push', 0, 'ใช้ตัวเลขของผู้เล่นเอง', 'บทเรียนใช้แรง 40 N ที่นักเรียนผลักจริง'],
     ['lesson-tabs', 2.5, 'การแทนหลายรูปแบบ', 'กราฟ v–t, a–t, x–t ของรอบที่เล่นเอง'],
     ['quiz1', 1, 'ควิซวินิจฉัย', 'ตัวเลือกผิดแต่ละข้อผูกกับความเข้าใจผิด'],
@@ -86,7 +87,7 @@ module.exports = (ctx, lang = 'en') => {
     ['ch1-rewind1', -0.2, 'Rewind time', 'retry instantly, no penalty'],
     ['ch1-sign', 0, 'Vectors', 'a negative push = a push to the left'],
     ['lesson-misconception', 0, 'Name the misconception', '“ΣF = 0 means it stops”'],
-    ['lesson-fbd', 0, 'Free-body diagram', 'one force at a time; y cancels'],
+    ['lesson-fbd', 5, 'Free-body diagram', 'one force at a time; y cancels'],
     ['lesson-push', 0, 'Their own numbers', 'the lesson uses the student’s 40 N push'],
     ['lesson-tabs', 2.5, 'Multiple representations', 'v–t, a–t, x–t of their own run'],
     ['quiz1', 1, 'Diagnostic quiz', 'each wrong option = a misconception'],
@@ -117,8 +118,8 @@ module.exports = (ctx, lang = 'en') => {
     // the closing screens, which the game shows in Thai only
     srcOverlays.push({ f0: m('feedback', 0.5), f1: m('summary'), x: 0, y: 940, fade: 0.3, anim: 'fade',
       html: `<div style="width:1920px;text-align:center">${H.caption('<b>Feedback form</b> — How hard was it? (1–5) · How fun? (1–5) · Which part was hardest? · Anything still unclear? The answers go to the teacher’s sheet.')}</div>` });
-    srcOverlays.push({ f0: m('summary', 0.3), f1: m('end'), x: 60, y: 650, fade: 0.3, anim: 'up', z: 5, html: H.sumCard('In English: what Ryuka learned (the hard way)', [
-      ['1st law', 'If ΣF = 0 the velocity doesn’t change: at rest stays at rest, moving keeps moving at constant velocity. So the box on ice never stops by itself.'],
+    srcOverlays.push({ f0: m('summary', 0.3), f1: m('end'), x: 60, y: 650, fadeIn: 0.3, fadeOut: 0, anim: 'up', z: 5, html: H.sumCard('In English: what Ryuka learned (the hard way)', [
+      ['1st law', 'If ΣF = 0 the velocity doesn’t change: an object at rest stays at rest, a moving one keeps moving at constant velocity. So the box on ice never stops by itself.'],
       ['Friction', 'f = μmg points against the motion and slows the box until it stops. It stops because of friction, not because the pushing ended.'],
       ['2nd law', 'ΣF = ma. The net force changes the velocity; it isn’t stored in the object. When the net force ends, the acceleration is 0.'],
       ['Equations of motion', 'For constant a: v = u + at; s = ut + ½at²; v² = u² + 2as — one phase of constant net force at a time.'],

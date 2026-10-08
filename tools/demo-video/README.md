@@ -64,8 +64,11 @@ frames at those times instead of the whole video, and `--remix` only redoes the 
 finished render (after changing an edit's `music.volume`). `--dump` writes `out/<name>.timeline.md`: every shot's source range and
 every overlay's text with its start and end time, handy for checking captions against the footage.
 
-If the game's dialogue changes, update the matching lines in `subs-en.cjs`. The English carries the
-numbers of this playthrough (120 N, 1.55 m, …), so it also needs updating when `scenario.cjs` pushes
-with different values; the compose step warns about lines it can't subtitle and about lines whose
-numbers differ from their English. If the flow changes, adjust `scenario.cjs`; the edits cut on its
-named marks (`r.mark(...)`), so most timing follows automatically.
+If the game's dialogue changes, update the matching lines in `subs-en.cjs`. This playthrough's
+numbers (120 N, 1.55 m, 260 N, 196 N, 490 N, 4.8 m/s, …) are written into the English subtitles in
+`subs-en.cjs`, the captions and ring label in `edits/techniques.cjs` (English and Thai) and the 40 N chip
+in `edits/walkthrough.cjs`, so update all of them when `scenario.cjs` pushes with different values.
+`compose.cjs … walkthrough` warns about lines it can't subtitle and about subtitle lines whose numbers
+differ from their English; the other edits are not checked. If the flow changes, adjust `scenario.cjs`;
+the edits cut on its named marks
+(`r.mark(...)`), so most timing follows automatically.

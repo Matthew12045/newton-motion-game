@@ -22,17 +22,17 @@ module.exports = (ctx, lang = 'en') => {
   beat(m('ch1-slide', -0.4), m('ch1-release1', 0), 1.3, c[0], [[0, PANEL], [0.4, PANEL], [0.6, STAGE(560)], [1, STAGE(560)]], { xin: 0 });
   beat(m('ch1-release1', 0), m('ch1-gone1', 1.0), 1.15, c[1], [[0, STAGE(560)], [0.5, STAGE(900)], [1, STAGE(1000)]], { xin: 0 });
   beat(m('ch1-rewind1', -0.1), m('ch1-rewind1', 1.8), 1.0, c[2], [[0, STAGE(900)], [1, STAGE(560)]]);
-  beat(m('lesson-push', 0.4), m('lesson-push', 6.0), 1.3, c[3], [[0, { cx: 1400, cy: 470, z: 1.05 }], [1, { cx: 1400, cy: 470, z: 1.1 }]]);
+  beat(m('lesson-push', 0.4), m('lesson-push', 6.0), 1.3, c[3], [[0, { cx: 1400, cy: 545, z: 1.05 }], [1, { cx: 1400, cy: 545, z: 1.05 }]]);
   beat(m('lesson-tabs', 2.0), m('lesson-tabs', 9.6), 1.5, c[4], [[0, { cx: 1420, cy: 470, z: 1.1 }], [1, { cx: 1420, cy: 470, z: 1.14 }]]);
   beat(m('fric-rewind', 1.4), m('fric-success', 1.4), 1.2, c[5], [[0, STAGE(560)], [0.5, STAGE(760)], [1, STAGE(760)]]);
-  beat(m('sandbox-5f', 0.2), m('sandbox-5f', 4.0), 1.0, c[6], [[0, { cx: 680, cy: 540, z: 1 }], [1, { cx: 680, cy: 540, z: 1 }]]);
+  beat(m('sandbox-5f', 0.2), m('sandbox-5f', 4.0), 1.0, c[6], [[0, { cx: 845, cy: 540, z: 0.93 }], [1, { cx: 845, cy: 540, z: 0.93 }]]);   // the whole derivation line
   beat(m('bonus-try2', 1.8), m('bonus-success', 1.2), 1.0, c[7], [[0, STAGE(520)], [0.5, STAGE(600)], [1, STAGE(640)]]);
   shots.push({ freeze: 60, view: { x: 0, y: 0, w: 1080, h: 1920 }, filter: 'blur(10px) brightness(.32)', dur: 5.5, xin: 0.5,
     cam: [[0, { cx: 960, cy: 540, z: 1.0 }], [1, { cx: 960, cy: 540, z: 1.05 }]],
-    overlays: [{ html: H.card({ w: 1080, h: 1920, kick: T ? 'เกมฟิสิกส์บนเบราว์เซอร์' : 'Free browser game',
+    overlays: [{ html: '<div class="vcard">' + H.card({ w: 1080, h: 1920, kick: T ? 'เกมฟิสิกส์บนเบราว์เซอร์' : 'Free browser game',
       title: T ? 'ริวกะกับกล่อง<br>ที่ไม่ยอมหยุด' : 'Ryuka and the Box That Wouldn’t Stop',
-      sub: T ? 'กฎการเคลื่อนที่ของนิวตัน<br>เรียนแบบเจ็บตัว' : 'Newton’s laws of motion,<br>learned the hard way' }), x: 0, y: 0, fade: 0.5, anim: 'pop' }] });
-  const overlays = [{ html: H.vhead(T ? 'เกมฟิสิกส์' : 'Physics game', T ? 'ริวกะกับกล่องที่ไม่ยอมหยุด' : 'Ryuka & the box that wouldn’t stop'),
+      sub: T ? 'กฎการเคลื่อนที่ของนิวตัน<br>เรียนแบบเจ็บตัว' : 'Newton’s laws of motion,<br>learned the hard way' }) + '</div>', x: 0, y: 0, fade: 0.5, fadeOut: 0, anim: 'pop' }] });
+  const overlays = [{ html: H.vhead(T ? 'เกมฟิสิกส์' : 'Physics game', T ? 'ริวกะกับกล่องที่ไม่ยอมหยุด' : 'Ryuka and the Box<br>That Wouldn’t Stop'),
     x: 0, y: 230, t0: 0, t1: -5.3, fade: 0.4, anim: 'fade' }];
   return { w: 1080, h: 1920, shots, overlays, music: { file: 'music/bright.wav', volume: 0.85 }, cls: T ? 'th' : '' };
 };
