@@ -5,8 +5,8 @@ the game teaches and how. Nothing here is needed to play the game.
 
 | Version | File | Length | What it is |
 |---|---|---|---|
-| Full playthrough | `walkthrough.mp4` / `walkthrough-th.mp4` | 9 min 20 s | Every chapter start to finish. English: subtitles for every line, English quiz cards, and a chip naming the teaching technique as it happens. Thai: the same with Thai chapter cards and chips, no subtitles. |
-| How it teaches | `techniques.mp4` / `techniques-th.mp4` | 2 min 36 s | 13 teaching techniques, one to three short clips each, with a title, an explanation and a caption. For teachers, reviewers and presentations. |
+| Full playthrough | `walkthrough.mp4` / `walkthrough-th.mp4` | 9 min 40 s | Every chapter start to finish. English: subtitles for every line, English quiz cards, and a chip naming the teaching technique as it happens. Thai: the same with Thai chapter cards and chips, no subtitles. |
+| How it teaches | `techniques.mp4` / `techniques-th.mp4` | 2 min 35 s | 13 teaching techniques, one to three short clips each, with a title, an explanation and a caption. For teachers, reviewers and presentations. |
 | Trailer | `trailer.mp4` / `trailer-th.mp4` | 56 s | Fast cuts with big captions and upbeat music. |
 | Vertical short | `vertical.mp4` / `vertical-th.mp4` | 37 s | 1080×1920 for Reels / TikTok / Shorts. |
 
