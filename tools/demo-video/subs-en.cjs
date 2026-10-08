@@ -72,7 +72,7 @@ const QUIZ = [
   ['หลังจากมือหลุด', 'Quiz: after the hand leaves the box on frictionless ice, which is correct?'],
   ['ขณะที่กล่องกำลังไถล', 'Quiz: while the box slides and slows down after release, which way does the net force point?'],
   ['ถ้าเพิ่มความเร็วกล่อง', 'Quiz: if the box’s speed doubles, how long is Ryuka in the air, and how far does she land?'],
-  ['ตอนกล่องชนที่กั้น', 'Quiz: at impact, how does the box’s push on the stopper compare with the stopper’s push on the box?'],
+  ['ตอนกล่องชนที่กั้น แรงที่', 'Quiz: at impact, how does the box’s push on the stopper compare with the stopper’s push on the box?'],
 ];
 
 const norm = s => s.replace(/^[“"\s]+/, '').trim();

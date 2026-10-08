@@ -48,7 +48,7 @@ const QUIZ_OPTS = {
     'It stops at once, because nobody is pushing', 'It keeps speeding up, because some acceleration is left'],
   'ขณะที่กล่องกำลังไถล': ['Forward, the way the box is moving', 'Backward, against the motion', 'Zero, since nobody pushes any more', 'It keeps changing with the speed'],
   'ถ้าเพิ่มความเร็วกล่อง': ['2× longer in the air, lands 4× farther', 'Same time in the air, lands 2× farther', 'Half the time, because she’s faster', 'Same time, lands on the same spot'],
-  'ตอนกล่องชนที่กั้น': ['The box pushes harder — it rammed the stopper', 'The stopper pushes harder — the box stops', 'Equal size, opposite directions, on different objects', 'They cancel to zero, so nothing happens'],
+  'ตอนกล่องชนที่กั้น แรงที่': ['The box pushes harder — it rammed the stopper', 'The stopper pushes harder — the box stops', 'Equal size, opposite directions, on different objects', 'They cancel to zero, so nothing happens'],
 };
 
 /* subtitles for every dialogue line in [f0, f1] of the recording (source-anchored overlays) */
