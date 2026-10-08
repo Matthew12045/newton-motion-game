@@ -203,7 +203,7 @@ class Recorder {
   /* type an exact number into the box next to a slider */
   async typeNum(k, text){
     await this.clickSel('#n_' + k);
-    await this.page.keyboard.press('Control+A');
+    await this.page.keyboard.press('ControlOrMeta+A');   // select all: Ctrl on Linux, ⌘ on macOS
     await this.tick(3);
     for (const ch of String(text)){ await this.page.keyboard.type(ch); await this.tick(4); }
     await this.page.keyboard.press('Tab');

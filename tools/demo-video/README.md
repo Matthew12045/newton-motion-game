@@ -9,6 +9,7 @@ the game teaches and how. Nothing here is needed to play the game.
 | How it teaches | `techniques.mp4` / `techniques-th.mp4` | 2 min 35 s | 13 teaching techniques, one to three short clips each, with a title, an explanation and a caption. For teachers, reviewers and presentations. |
 | Trailer | `trailer.mp4` / `trailer-th.mp4` | 56 s | Fast cuts with big captions and upbeat music. |
 | Vertical short | `vertical.mp4` / `vertical-th.mp4` | 37 s | 1080×1920 for Reels / TikTok / Shorts. |
+| Intro | `intro.mp4` / `intro-th.mp4` | 30 s | A clean opener for presentations, in the light look of the game and the slides: one short line per beat, cuts on the music's bar lines, and an end card that holds on the last frame. |
 
 All are 1920×1080 (the short is 1080×1920), 30 fps, H.264 + AAC. The music is synthesised by `music.py`
 (no samples), so it is free to use.
@@ -27,7 +28,7 @@ All are 1920×1080 (the short is 1080×1920), 30 fps, H.264 + AAC. The music is 
    recording, with speed and camera zoom) and overlays (titles, captions, subtitles, highlight rings).
    Every output frame is laid out as HTML in `studio.html` and screenshotted into ffmpeg, then the
    music is mixed in. English subtitles come from `subs-en.cjs`, matched to the logged dialogue.
-3. **Music** (`music.py`): two beds, `bright.wav` (trailer, short) and `calm.wav` / `calm_long.wav`.
+3. **Music** (`music.py`): two beds, `bright.wav` (trailer, short, intro) and `calm.wav` / `calm_long.wav`.
 
 ## Regenerating
 

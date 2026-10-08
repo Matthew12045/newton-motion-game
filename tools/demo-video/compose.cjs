@@ -123,6 +123,39 @@ for (const s of edit.shots) if (s.group){
 }
 console.log(`${NAME}: ${edit.shots.length} shots, ${TOTAL.toFixed(1)} s`);
 
+/* shot.steady = [y0, y1, x0, x1]: a box of the recording holding only still things with sharp vertical
+   edges (a flag pole, say). In some levels the game draws an occasional frame about a pixel to one side;
+   under a zoom that reads as the picture twitching. Each frame's sideways offset inside the box is measured
+   against the shot's median and taken out again (s.dx: frame → px to move it, in recording pixels). */
+function steadyOffsets(f0, f1, [y0, y1, x0 = 0, x1 = SRC_W]){
+  const h = y1 - y0, w = x1 - x0, n = f1 - f0 + 1, M = 6;
+  const buf = execFileSync('ffmpeg', ['-v', 'error', '-start_number', String(f0 + 1), '-i', path.join(FRAMES, '%05d.jpg'), '-frames:v', String(n),
+    '-vf', `crop=${w}:${h}:${x0}:${y0},format=gray`, '-f', 'rawvideo', '-'], { maxBuffer: 1 << 30 });
+  const prof = [];
+  for (let k = 0; k < n; k++){
+    const p = new Float64Array(w);
+    for (let y = 0; y < h; y++){ const o = (k*h + y)*w; for (let x = 0; x < w; x++) p[x] += buf[o + x]; }
+    prof.push(p);
+  }
+  const ref = new Float64Array(w);
+  for (let x = 0; x < w; x++){ const v = prof.map(p => p[x]).sort((a, b) => a - b); ref[x] = v[v.length >> 1]; }
+  const dx = {};
+  for (let k = 0; k < n; k++){
+    const err = d => { let e = 0; for (let x = M; x < w - M; x++){ const q = prof[k][x + d] - ref[x]; e += q*q; } return e; };
+    const E = []; for (let d = -M; d <= M; d++) E.push(err(d));
+    const i = E.indexOf(Math.min(...E));
+    let d = i - M;
+    if (i > 0 && i < E.length - 1){ const den = E[i - 1] - 2*E[i] + E[i + 1]; if (den > 0) d += 0.5*(E[i - 1] - E[i + 1])/den; }
+    if (Math.abs(d) > 0.1) dx[f0 + k] = -d;       // content drawn d px off: move it back
+  }
+  return dx;
+}
+for (const s of edit.shots) if (s.steady && s.segs){
+  const f0 = Math.floor(Math.min(...s.segs.map(g => g.a))), f1 = Math.ceil(Math.max(...s.segs.map(g => g.b)));
+  s.dx = steadyOffsets(f0, f1, s.steady);
+  console.log(`  steadied frames ${f0}–${f1}: ${Object.keys(s.dx).length} moved back`);
+}
+
 function srcFrame(s, u){
   if (s.freeze != null) return s.freeze;
   let acc = 0;
@@ -155,16 +188,34 @@ function alphaOf(o, u, dur){
   const fi = o.fadeIn ?? o.fade ?? 0.35, fo = o.fadeOut ?? o.fade ?? 0.35;
   return Math.min(fi ? ease(u/fi) : 1, fo ? ease((dur - u)/fo) : 1);
 }
-// a = the overlay's own fade; shotOp = its shot's fade. Motion follows only the overlay's own fade, so
-// nothing slides at a cut. A solid overlay (a card covering the game's own text) darkens with its shot
-// instead of turning see-through over the footage.
-function placeOverlay(o, a, cam, shotOp = 1){
+// o.move: [[sec, {x, y, scale}], …] keyframes, sec counted from when the overlay appears. Linear (a
+// constant velocity) unless o.moveEase; the anim offsets below still apply on top.
+function moveAt(o, v){
+  const k = o.move;
+  let i = 0;
+  while (i < k.length - 1 && k[i + 1][0] <= v) i++;
+  const [t0, p0] = k[i], [t1, p1] = k[Math.min(i + 1, k.length - 1)];
+  let e = t1 > t0 ? Math.min(1, Math.max(0, (v - t0)/(t1 - t0))) : 0;
+  if (o.moveEase) e = ease(e);
+  const at = key => p0[key] == null ? null : p0[key] + ((p1[key] ?? p0[key]) - p0[key])*e;
+  return { x: at('x'), y: at('y'), scale: at('scale') };
+}
+// a = the overlay's own fade; shotOp = its shot's fade; v = seconds since it appeared. Motion follows only
+// the overlay's own fade (or its move keyframes), so nothing slides at a cut. A solid overlay (a card
+// covering the game's own text) darkens with its shot instead of turning see-through over the footage.
+function placeOverlay(o, a, cam, shotOp = 1, v = 0){
   const r = { id: o.id, html: o.html, opacity: +((o.solid ? a : a*shotOp)*(o.opacity ?? 1)).toFixed(3), x: o.x, y: o.y, w: o.w, h: o.h, z: o.z, origin: o.origin };
   if (o.solid && shotOp < 1) r.filter = `brightness(${shotOp.toFixed(3)})`;
   const kind = o.anim || 'up';
   if (kind === 'up') r.dy = (1 - a)*(o.rise ?? 26);
   if (kind === 'pop') r.scale = 0.86 + 0.14*a;
   if (kind === 'left') r.x = (o.x || 0) - (1 - a)*40;
+  if (o.move){
+    const p = moveAt(o, v);
+    if (p.x != null) r.x = p.x + ((r.x ?? 0) - (o.x || 0));
+    if (p.y != null) r.y = p.y;
+    if (p.scale != null) r.scale = (r.scale || 1)*p.scale;
+  }
   if (o.srcRect && cam){                       // a ring around something in the footage
     const [sx, sy, sw, sh] = o.srcRect;
     r.x = cam.view.x + cam.tx + sx*cam.s; r.y = cam.view.y + cam.ty + sy*cam.s; r.w = sw*cam.s; r.h = sh*cam.s;
@@ -191,14 +242,15 @@ function stateAt(T){
     if (s.src || s.freeze != null){
       cam = camAt(s, u);
       const f = srcFrame(s, u);
-      layers.push({ src: framePath(f), view: cam.view, framed: !!s.framed, s: cam.s, tx: cam.tx, ty: cam.ty, opacity: +op.toFixed(3), filter: s.filter });
+      const tx = cam.tx + (s.dx ? (s.dx[Math.max(1, Math.min(nFrames, Math.round(f) + 1)) - 1] || 0)*cam.s : 0);
+      layers.push({ src: framePath(f), view: cam.view, framed: !!s.framed, s: cam.s, tx, ty: cam.ty, opacity: +op.toFixed(3), filter: s.filter });
       topCam = cam; topSrc = f; topOp = op;
     }
     for (const o of s.overlays || []){
       const d = o.dur ?? (s.dur - (o.at || 0));
       const v = u - (o.at || 0);
       if (v < 0 || v > d) continue;
-      overlays.push(placeOverlay(o, alphaOf(o, v, d), cam, o.withShot === false ? 1 : op));
+      overlays.push(placeOverlay(o, alphaOf(o, v, d), cam, o.withShot === false ? 1 : op, v));
     }
   });
   for (const [g, list] of Object.entries(edit.groupOverlays || {})){
@@ -207,21 +259,21 @@ function stateAt(T){
     for (const o of list){
       const d = o.dur ?? (G.end - G.start - (o.at || 0)), v = T - G.start - (o.at || 0);
       if (v < 0 || v > d) continue;
-      overlays.push(placeOverlay(o, alphaOf(o, v, d), topCam));
+      overlays.push(placeOverlay(o, alphaOf(o, v, d), topCam, 1, v));
     }
   }
   for (const o of edit.overlays || []){
     const t1 = o.t1 < 0 ? TOTAL + o.t1 : o.t1, v = T - o.t0, d = t1 - o.t0;
     if (v < 0 || v > d) continue;
-    overlays.push(placeOverlay(o, alphaOf(o, v, d), topCam));
+    overlays.push(placeOverlay(o, alphaOf(o, v, d), topCam, 1, v));
   }
   if (topSrc != null && edit.srcOverlays){
     const shot = active[active.length - 1];
     for (const o of edit.srcOverlays){
       if (shot.noSubs && o.sub) continue;
       if (topSrc < o.f0 || topSrc > o.f1) continue;
-      const a = alphaOf(o, (topSrc - o.f0)/FPS, (o.f1 - o.f0)/FPS);
-      overlays.push(placeOverlay(o, a, topCam, topOp));   // fades with its shot
+      const v = (topSrc - o.f0)/FPS, a = alphaOf(o, v, (o.f1 - o.f0)/FPS);
+      overlays.push(placeOverlay(o, a, topCam, topOp, v));   // fades with its shot
     }
   }
   return { layers, overlays };
@@ -296,7 +348,11 @@ function stateAt(T){
     console.log('remixed ' + final);
     return;
   }
+  // the screenshots are full-range BT.601 JPEGs; encode standard HD video (BT.709, TV range, tagged), so
+  // players and slide tools that ignore or assume colour tags all show the same colours. The tags go on the
+  // frames (setparams): ffmpeg takes them from the frames over the -color_* output options.
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
+    '-vf', 'scale=in_range=pc:in_color_matrix=bt601:out_range=tv:out_color_matrix=bt709,format=yuv420p,setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', String(edit.crf || 19), '-pix_fmt', 'yuv420p', '-r', String(FPS), '-movflags', '+faststart', silent],
     { stdio: ['pipe', 'inherit', 'inherit'] });
   const done = new Promise(r => ff.on('close', r));
