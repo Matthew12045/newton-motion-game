@@ -139,6 +139,7 @@ window.apply = async st => {
     if (e._html !== o.html){ e.innerHTML = o.html; e._html = o.html; }
     e.style.zIndex = 100 + (o.z || 0);
     e.style.opacity = o.opacity;
+    e.style.filter = o.filter || '';
     e.style.transform = `translate(${o.x || 0}px,${(o.y || 0) + (o.dy || 0)}px) scale(${o.scale || 1})`;
     e.style.transformOrigin = o.origin || '50% 50%';
     if (o.w) e.style.width = o.w + 'px'; else e.style.width = '';

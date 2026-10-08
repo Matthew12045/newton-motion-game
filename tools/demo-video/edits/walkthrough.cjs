@@ -118,7 +118,7 @@ module.exports = (ctx, lang = 'en') => {
     // the closing screens, which the game shows in Thai only
     srcOverlays.push({ f0: m('feedback', 0.5), f1: m('summary'), x: 0, y: 940, fade: 0.3, anim: 'fade',
       html: `<div style="width:1920px;text-align:center">${H.caption('<b>Feedback form</b> — How hard was it? (1–5) · How fun? (1–5) · Which part was hardest? · Anything still unclear? The answers go to the teacher’s sheet.')}</div>` });
-    srcOverlays.push({ f0: m('summary', 0.3), f1: m('end'), x: 60, y: 650, fadeIn: 0.3, fadeOut: 0, anim: 'up', z: 5, html: H.sumCard('In English: what Ryuka learned (the hard way)', [
+    srcOverlays.push({ f0: m('summary', 0.3), f1: m('end'), x: 60, y: 650, fadeIn: 0.3, fadeOut: 0, solid: true, anim: 'up', z: 5, html: H.sumCard('In English: what Ryuka learned (the hard way)', [
       ['1st law', 'If ΣF = 0 the velocity doesn’t change: an object at rest stays at rest, a moving one keeps moving at constant velocity. So the box on ice never stops by itself.'],
       ['Friction', 'f = μmg points against the motion and slows the box until it stops. It stops because of friction, not because the pushing ended.'],
       ['2nd law', 'ΣF = ma. The net force changes the velocity; it isn’t stored in the object. When the net force ends, the acceleration is 0.'],

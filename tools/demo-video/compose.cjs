@@ -19,22 +19,32 @@ const SRC_W = 1920, SRC_H = 1080;
 const raw = JSON.parse(fs.readFileSync(path.join(WORK, 'raw/full.json'), 'utf8'));
 const FPS = raw.fps;
 // the recording as JPEG frames; extracted again whenever raw/full.mp4 is newer (a re-recording) or the
-// last extraction did not finish (no .done stamp). A lock file keeps two renders started together from
-// extracting over each other: the second one waits, then finds the stamp.
+// last extraction did not finish (no .done stamp). A lock file (holding the extracting process's pid) keeps
+// two renders started together from extracting over each other: the second one waits, then finds the stamp.
 const FRAMES = path.join(WORK, 'frames/full');
 const STAMP = path.join(FRAMES, '.done'), RAW_MP4 = path.join(WORK, 'raw/full.mp4'), LOCK = FRAMES + '.lock';
 const fresh = () => fs.existsSync(STAMP) && fs.statSync(STAMP).mtimeMs >= fs.statSync(RAW_MP4).mtimeMs;
 if (!fresh()){
   fs.mkdirSync(path.dirname(FRAMES), { recursive: true });
   const nap = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch (e){ return e.code === 'EPERM'; } };
+  let told = false;
   for (;;){
-    try { fs.closeSync(fs.openSync(LOCK, 'wx')); break; }
+    try { fs.writeFileSync(LOCK, String(process.pid), { flag: 'wx' }); break; }
     catch (e){
       if (e.code !== 'EEXIST') throw e;
-      if (Date.now() - fs.statSync(LOCK).mtimeMs > 20*60e3) fs.rmSync(LOCK, { force: true });   // left by a crashed run
-      else nap(2000);
+      let pid, age;
+      try { pid = +fs.readFileSync(LOCK, 'utf8'); age = Date.now() - fs.statSync(LOCK).mtimeMs; }
+      catch (e2){ if (e2.code === 'ENOENT') continue; throw e2; }           // released meanwhile: try again
+      if (!pid || !alive(pid) || age > 60*60e3){ fs.rmSync(LOCK, { force: true }); continue; }   // left by a run that died
+      if (!told){ console.log(`waiting for frame extraction by process ${pid} (${LOCK})…`); told = true; }
+      nap(2000);
     }
   }
+  // a Ctrl-C or kill during extraction must not leave the lock behind
+  const unlock = () => { try { if (+fs.readFileSync(LOCK, 'utf8') === process.pid) fs.rmSync(LOCK, { force: true }); } catch (e){} };
+  const onSignal = sig => { unlock(); process.exit(sig === 'SIGINT' ? 130 : 143); };
+  process.once('SIGINT', onSignal); process.once('SIGTERM', onSignal);
   try {
     if (!fresh()){
       fs.rmSync(FRAMES, { recursive: true, force: true });
@@ -43,10 +53,13 @@ if (!fresh()){
       execFileSync('ffmpeg', ['-v', 'error', '-i', RAW_MP4, '-q:v', '2', path.join(FRAMES, '%05d.jpg')], { stdio: 'inherit' });
       fs.writeFileSync(STAMP, '');
     }
-  } finally { fs.rmSync(LOCK, { force: true }); }
+  } finally {
+    unlock();
+    process.removeListener('SIGINT', onSignal); process.removeListener('SIGTERM', onSignal);
+  }
 }
 const nFrames = fs.readdirSync(FRAMES).filter(f => f.endsWith('.jpg')).length;
-if (Math.abs(nFrames - raw.frames) > 2) throw new Error(`${FRAMES} has ${nFrames} frames but raw/full.json logged ${raw.frames}: delete the folder and run again`);
+if (Math.abs(nFrames - raw.frames) > 2) throw new Error(`${FRAMES} has ${nFrames} frames but raw/full.json logged ${raw.frames}: if scenario.cjs did not finish, record again; otherwise delete ${FRAMES} and run again`);
 const framePath = f => 'file://' + path.join(FRAMES, String(Math.max(1, Math.min(nFrames, Math.round(f) + 1))).padStart(5, '0') + '.jpg');
 
 /* ---------- what the edit modules get ---------- */
@@ -142,8 +155,12 @@ function alphaOf(o, u, dur){
   const fi = o.fadeIn ?? o.fade ?? 0.35, fo = o.fadeOut ?? o.fade ?? 0.35;
   return Math.min(fi ? ease(u/fi) : 1, fo ? ease((dur - u)/fo) : 1);
 }
-function placeOverlay(o, a, cam){
-  const r = { id: o.id, html: o.html, opacity: +(a*(o.opacity ?? 1)).toFixed(3), x: o.x, y: o.y, w: o.w, h: o.h, z: o.z, origin: o.origin };
+// a = the overlay's own fade; shotOp = its shot's fade. Motion follows only the overlay's own fade, so
+// nothing slides at a cut. A solid overlay (a card covering the game's own text) darkens with its shot
+// instead of turning see-through over the footage.
+function placeOverlay(o, a, cam, shotOp = 1){
+  const r = { id: o.id, html: o.html, opacity: +((o.solid ? a : a*shotOp)*(o.opacity ?? 1)).toFixed(3), x: o.x, y: o.y, w: o.w, h: o.h, z: o.z, origin: o.origin };
+  if (o.solid && shotOp < 1) r.filter = `brightness(${shotOp.toFixed(3)})`;
   const kind = o.anim || 'up';
   if (kind === 'up') r.dy = (1 - a)*(o.rise ?? 26);
   if (kind === 'pop') r.scale = 0.86 + 0.14*a;
@@ -181,7 +198,7 @@ function stateAt(T){
       const d = o.dur ?? (s.dur - (o.at || 0));
       const v = u - (o.at || 0);
       if (v < 0 || v > d) continue;
-      overlays.push(placeOverlay(o, alphaOf(o, v, d)*(o.withShot === false ? 1 : op), cam));
+      overlays.push(placeOverlay(o, alphaOf(o, v, d), cam, o.withShot === false ? 1 : op));
     }
   });
   for (const [g, list] of Object.entries(edit.groupOverlays || {})){
@@ -203,8 +220,8 @@ function stateAt(T){
     for (const o of edit.srcOverlays){
       if (shot.noSubs && o.sub) continue;
       if (topSrc < o.f0 || topSrc > o.f1) continue;
-      const a = alphaOf(o, (topSrc - o.f0)/FPS, (o.f1 - o.f0)/FPS)*topOp;   // fades with its shot
-      overlays.push(placeOverlay(o, a, topCam));
+      const a = alphaOf(o, (topSrc - o.f0)/FPS, (o.f1 - o.f0)/FPS);
+      overlays.push(placeOverlay(o, a, topCam, topOp));   // fades with its shot
     }
   }
   return { layers, overlays };
