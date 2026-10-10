@@ -6,7 +6,7 @@
  *   2. Deploy → New deployment → Web app · Execute as: Me · Who has access: Anyone → Deploy.
  *   3. Copy the web-app URL into LOG_URL near the top of the <script> in index.html.
  * Then use the "Newton" menu in the sheet → "สร้างสรุป" to rebuild the Summary tab,
- * and "จัดรูปแบบชีต" to tidy how the data tabs look.
+ * "จัดรูปแบบชีต" to tidy how the data tabs look, and "ใช้เวลาประเทศไทย" if the times are not in Thai time.
  */
 
 // One tab per event type. Column names match the fields the game sends.
@@ -193,6 +193,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('Newton')
     .addItem('สร้างสรุป (Build summary)', 'buildSummary')
     .addItem('จัดรูปแบบชีต (Format sheets)', 'formatSheets')
+    .addItem('ใช้เวลาประเทศไทย (Thai time)', 'useThaiTime')
     .addToUi();
 }
 
@@ -450,6 +451,73 @@ function orderTabs_(ss) {
   ss.setActiveSheet(shown);
 }
 
+/* ---------------- Time zone ---------------- */
+
+// A sheet shows times in its own time zone (File → Settings), and a cell holds only the clock time, not the moment.
+// A sheet created on another time zone therefore shows every time shifted. Menu: Newton → ใช้เวลาประเทศไทย switches
+// the sheet to Thai time and rewrites the saved times, so each one still means the same moment.
+// Running it again does nothing. Build the summary again afterwards.
+const THAI_TZ = 'Asia/Bangkok';
+const clock_ = (d, tz) => Utilities.formatDate(d, tz, 'd|yyyy|HH:mm');
+const shownClock_ = s => { const m = String(s).match(/^(\d{1,2}) \S+ (\d{4})\s+(\d{2}):(\d{2})$/); return m ? m[1] + '|' + m[2] + '|' + m[3] + ':' + m[4] : String(s); };
+// The number a cell holds for a moment shown in a time zone: days since 30 Dec 1899 on that zone's clock.
+function serial_(d, tz) {
+  const z = Utilities.formatDate(d, tz, 'Z'), off = (z[0] === '-' ? -1 : 1) * (Number(z.slice(1, 3)) * 60 + Number(z.slice(3, 5)));
+  return (d.getTime() + off * 60000) / 86400000 + 25569;
+}
+function say_(ss, msg) {
+  Logger.log(msg);
+  try { ss.toast(msg, 'Newton', 10); } catch (err) { /* no window to show it in */ }
+  return msg;
+}
+
+function useThaiTime() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), old = ss.getSpreadsheetTimeZone();
+  if (old === THAI_TZ) return say_(ss, 'ชีตนี้ใช้เวลาประเทศไทยอยู่แล้ว ไม่มีอะไรต้องแก้');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);                     // no answers are saved while the times are being rewritten
+  try {
+    // 1. Read every saved time as a moment while the sheet is still on its old time zone, and make sure the
+    //    moments agree with what the cells show. If they do not, stop before anything is changed.
+    const jobs = [];
+    Object.keys(TABS).forEach(type => {
+      const T = TABS[type], sh = ss.getSheetByName(T.name), n = sh ? sh.getLastRow() - 1 : 0;
+      if (n < 1) return;
+      T.cols.forEach((c, i) => { if (DATE_COLS.indexOf(c) >= 0) jobs.push({ tab: T.name, col: c, rng: sh.getRange(2, i + 1, n, 1) }); });
+    });
+    jobs.forEach(j => j.rng.setNumberFormat(DATE_FMT));
+    SpreadsheetApp.flush();
+    let times = 0;
+    jobs.forEach(j => {
+      j.vals = j.rng.getValues();
+      const shown = j.rng.getDisplayValues();
+      j.vals.forEach((v, r) => {
+        if (!(v[0] instanceof Date)) return;
+        times++;
+        if (clock_(v[0], old) !== shownClock_(shown[r][0])) throw new Error('หยุดก่อนแก้ไข: เวลาใน ' + j.tab + '!' + j.col +
+          ' แถว ' + (r + 2) + ' อ่านได้ ' + clock_(v[0], old) + ' แต่ชีตแสดง ' + shown[r][0] + ' (ยังไม่มีอะไรถูกเปลี่ยน)');
+      });
+    });
+
+    // 2. Switch the sheet, then write each moment back as the number for its Thai clock time.
+    ss.setSpreadsheetTimeZone(THAI_TZ);
+    SpreadsheetApp.flush();
+    jobs.forEach(j => j.rng.setValues(j.vals.map(v => [v[0] instanceof Date ? serial_(v[0], THAI_TZ) : v[0]])));
+    SpreadsheetApp.flush();
+
+    // 3. Check what the cells show now.
+    let wrong = 0;
+    jobs.forEach(j => {
+      const shown = j.rng.getDisplayValues();
+      j.vals.forEach((v, r) => { if (v[0] instanceof Date && clock_(v[0], THAI_TZ) !== shownClock_(shown[r][0])) wrong++; });
+    });
+    if (wrong) throw new Error('เปลี่ยนเป็นเวลาไทยแล้ว แต่มี ' + wrong + ' ช่องที่เวลาไม่ตรง ใช้ File → Version history เพื่อย้อนกลับได้');
+    return say_(ss, 'เปลี่ยนจาก ' + old + ' เป็นเวลาประเทศไทยแล้ว แก้เวลา ' + times + ' ช่อง กรุณากด "สร้างสรุป" อีกครั้ง');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // Run from the editor after changing this file: writes sample rows to two scratch tabs, checks them, removes the tabs.
 function selfTest() {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), names = ['selftest_rows', 'selftest_sessions'];
@@ -471,6 +539,9 @@ function selfTest() {
     check('no formula', fb.getRange(2, at('question') + 1).getFormula(), '');
     check('number', v[1][at('difficulty')], 3);
     check('date', v[1][at('ts')] instanceof Date, true);
+    check('same moment read back', v[1][at('ts')].getTime(), new Date('2026-10-10T10:00:00.000Z').getTime());
+    check('time shown on the sheet\'s clock', shownClock_(fb.getRange(2, at('ts') + 1).getDisplayValue()),
+      clock_(new Date('2026-10-10T10:00:00.000Z'), ss.getSpreadsheetTimeZone()));
     check('yes/no', v[2][at('skipped')], true);
     const se = sheet_(ss, S), one = o => Object.assign({ type: 'session', sessionId: 'S1', name: 'ทดสอบ', room: '1/2', runs: 1 }, o);
     check('new session', upsert_(se, S, [one({ ts: '2026-10-10T10:00:00.000Z', lastStep: 'ch1' })]), 1);
