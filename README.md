@@ -36,6 +36,7 @@ Notes:
 
 - If you change `Code.gs` later, use **Deploy → Manage deployments → Edit → Version: New version** so the URL stays the same.
 - The October update renamed the parts to the formal chapter names and the class heading to ชั้น. The sheet's columns are unchanged, so collecting keeps working without a new deployment. New rows use the new part names in Sections `part` and Feedback `hardest`; rows from before the update keep the old names. To get the new Summary headings (and old answers shown under the new names), paste the new `Code.gs` over the old one and save.
+- The feedback form has a box for what students think of the game (คิดยังไงกับเกมนี้), saved in a new Feedback column `comment`. The sheet only saves it after you paste the new `Code.gs` and deploy a new version (the step above). Until then, everything else keeps working, but the comment is dropped. The new column heading is added to the existing Feedback tab automatically, and the Summary gets a matching column.
 - If a student is offline or the page closes, the data waits in the browser and is sent the next time the game opens. Rows that were already received are not added twice.
 - While `LOG_URL` is empty, nothing is sent anywhere.
 - The sheet will hold students' names. Tell students their play is recorded for the class, and keep the sheet private.

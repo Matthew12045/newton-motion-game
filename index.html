@@ -181,7 +181,7 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .ts .startRow{margin-top:4px}
 .ts .startRow .btnDark{margin-top:0}
 /* end-of-game feedback */
-.fb{display:flex;flex-direction:column;gap:16px;width:900px;text-align:left;font-size:21px}
+.fb{display:flex;flex-direction:column;gap:12px;width:1040px;text-align:left;font-size:21px}
 .fbRow{display:grid;grid-template-columns:220px 1fr;align-items:center;gap:4px 16px}
 .fbRow small{grid-column:2;font-size:14px;color:var(--slate-ink)}
 .scale{display:flex;gap:8px;flex-wrap:wrap}
@@ -189,8 +189,8 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .scale button:hover{border-color:var(--slate)}
 .scale button[aria-pressed="true"]{background:#EEF4F3;border-color:var(--teal);font-weight:600}
 .scale[data-k="hardest"] button{font-size:16px;padding:5px 12px}
-#fbQ{font:inherit;font-size:18px;width:100%;height:80px;resize:none;border:2px solid var(--slate);border-radius:14px;padding:8px 14px;color:var(--ink)}
-#fbQ:focus-visible{outline:none;border-color:var(--ink)}
+.fb textarea{font:inherit;font-size:18px;width:100%;height:80px;resize:none;border:2px solid var(--slate);border-radius:14px;padding:8px 14px;color:var(--ink)}
+.fb textarea:focus-visible{outline:none;border-color:var(--ink)}
 /* rewinding time, VHS style: cold tint, scanlines, a rolling bright band, a little shake, a blinking ◀◀ */
 #rewind{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;background:rgba(40,70,150,.12)}
 #rewind::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(10,20,50,.13) 0 2px,transparent 2px 5px)}
@@ -2104,6 +2104,7 @@ function feedback(){
       <div class="fbRow"><span>ส่วนไหนยากที่สุด</span><div class="scale" data-k="hardest" role="group" aria-label="ส่วนไหนยากที่สุด">${parts.map(k =>
         `<button data-v="${k}" aria-pressed="false">${PART_NAME[k]}</button>`).join('')}</div></div>
       <div class="fbRow"><label for="fbQ">ยังสงสัยอะไรอยู่ไหม</label><textarea id="fbQ" maxlength="300" placeholder="ส่วนที่ยังไม่เข้าใจ หรือสิ่งที่อยากถาม (ไม่บังคับ)"></textarea></div>
+      <div class="fbRow"><label for="fbC">คิดยังไงกับเกมนี้</label><textarea id="fbC" maxlength="500" placeholder="ชอบตรงไหน ไม่ชอบตรงไหน หรืออยากให้ปรับอะไร (ไม่บังคับ)"></textarea></div>
     </div>
     <div class="startRow"><button class="btnDark" id="fbSend">ส่ง แล้วดูสรุป</button><button class="btnGhost" id="fbSkip">ข้าม</button></div>`);
   const ans = {};
@@ -2115,7 +2116,7 @@ function feedback(){
   return new Promise(res => {
     $('fbSend').onclick = () => {
       track.feedback({ difficulty:+ans.difficulty || '', enjoyment:+ans.enjoyment || '',
-        hardest:ans.hardest ? PART_NAME[ans.hardest] : '', question:$('fbQ').value.trim(), skipped:false });
+        hardest:ans.hardest ? PART_NAME[ans.hardest] : '', question:$('fbQ').value.trim(), comment:$('fbC').value.trim(), skipped:false });
       res();
     };
     $('fbSkip').onclick = () => { track.feedback({ skipped:true }); res(); };

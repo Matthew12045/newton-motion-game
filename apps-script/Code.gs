@@ -25,7 +25,7 @@ const TABS = {
   choice:   { name: 'Choices',
               cols: ['eid', 'ts', 'name', 'room', 'sessionId', 'section', 'question', 'pick', 'afterAttempts'] },
   feedback: { name: 'Feedback',
-              cols: ['eid', 'ts', 'name', 'room', 'sessionId', 'difficulty', 'enjoyment', 'hardest', 'question', 'skipped'] }
+              cols: ['eid', 'ts', 'name', 'room', 'sessionId', 'difficulty', 'enjoyment', 'hardest', 'question', 'skipped', 'comment'] }
 };
 const DATE_COLS = ['ts', 'updatedAt', 'startedAt', 'enteredAt'];
 const MAX_EVENTS = 300;   // per request
@@ -85,6 +85,9 @@ function sheet_(ss, T) {
     sh.appendRow(T.cols);
     sh.getRange(1, 1, 1, T.cols.length).setFontWeight('bold');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < T.cols.length) {
+    // a column added later (always at the end): give the existing tab its heading
+    sh.getRange(1, 1, 1, T.cols.length).setValues([T.cols]).setFontWeight('bold');
   }
   return sh;
 }
@@ -200,7 +203,7 @@ function buildSummary() {
     .concat(PARTS.map(k => 'นาที: ' + PART_NAME[k]))
     .concat(['ใช้เวลามากที่สุด', 'ควิซถูกตั้งแต่ครั้งแรก', 'ความเข้าใจผิดที่เจอ'])
     .concat(LEVELS.map(k => 'ครั้งที่ลอง: ' + PART_NAME[k]))
-    .concat(['ขยับค่า/ครั้ง', '% พิมพ์ตัวเลขเอง', 'วิธีหาคำตอบ (คร่าวๆ)', 'ความยาก (1–5)', 'ความสนุก (1–5)', 'ส่วนที่ยากที่สุด', 'ยังสงสัย']);
+    .concat(['ขยับค่า/ครั้ง', '% พิมพ์ตัวเลขเอง', 'วิธีหาคำตอบ (คร่าวๆ)', 'ความยาก (1–5)', 'ความสนุก (1–5)', 'ส่วนที่ยากที่สุด', 'ยังสงสัย', 'คิดยังไงกับเกมนี้']);
 
   const list = Object.keys(people).map(k => people[k]).filter(p => p.name || p.room)
     .sort((a, b) => a.room.localeCompare(b.room) || a.name.localeCompare(b.name));
@@ -219,7 +222,8 @@ function buildSummary() {
         Array.from(p.tags).join(', ')])
       .concat(LEVELS.map(k => { const L = p.lv[k]; return !L ? '' : L.won ? String(L.won) : L.n + ' (ยังไม่ผ่าน)'; }))
       .concat([avgMoves, typedPct, style, p.fb ? p.fb.difficulty : '', p.fb ? p.fb.enjoyment : '',
-        p.fb ? (OLD_PART[p.fb.hardest] ? PART_NAME[OLD_PART[p.fb.hardest]] : p.fb.hardest) : '', p.fb ? p.fb.question : '']);
+        p.fb ? (OLD_PART[p.fb.hardest] ? PART_NAME[OLD_PART[p.fb.hardest]] : p.fb.hardest) : '', p.fb ? p.fb.question : '',
+        p.fb ? p.fb.comment || '' : '']);
   });
 
   // Class average of the minutes columns, to compare each student against.
