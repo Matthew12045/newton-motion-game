@@ -41,6 +41,7 @@ const PART_NAME = { ch1: 'ด่านที่ 1 : กฎข้อที่ 1 �
 const OLD_PART = { 'ด่านที่ 1': 'ch1', 'พาร์ทสอน': 'lesson', 'ด่านแรงเสียดทาน': 'fric', 'พาร์ทสอน : แรงเสียดทาน': 'fricLesson',
   'ปรับมวลและ μ เอง': 'sandbox', 'ด่านแถม (โพรเจกไทล์)': 'bonus', 'พาร์ทสอน (แถม)': 'projLesson' };
 const LEVELS = ['ch1', 'fric', 'sandbox', 'bonus'];
+const NO_PASS = ['ch1'];   // on the ice the box never stops, so this level cannot be passed: only the pushes are counted
 const QUIZZES = 4;
 
 // How the tabs look. Every column is one of these kinds: width in px, alignment, wrapping, number format.
@@ -72,7 +73,7 @@ const fmts_ = cols => cols.map(c => kind_(c).fmt || 'General');
 const BOOL_STYLE = { reachedEnd: [GOOD, MUTED], completed: [GOOD, MUTED], firstTryCorrect: [GOOD, BAD], typedExact: [TEAL, MUTED],
   partial: [WARN, MUTED], skipped: [WARN, MUTED] };
 const OUTCOME_STYLE = { success: ['#E3F4EA', GOOD], short: ['#FFF1DC', WARN], long: ['#FFF1DC', WARN], gone: ['#FFF1DC', WARN],
-  nomove: ['#FBE7E7', BAD], 'wrong-way': ['#FBE7E7', BAD] };
+  nomove: ['#FBE7E7', BAD], 'wrong-way': ['#FBE7E7', BAD], retried: ['#EEF0F3', MUTED] };
 const TAB_ORDER = ['Summary', 'Sessions', 'Sections', 'Attempts', 'Quiz', 'Choices', 'Feedback', 'Setup'];
 
 function doGet() {
@@ -271,7 +272,10 @@ function buildSummary() {
       .concat(mins)
       .concat([top ? PART_NAME[top] : '', qs.length ? qs.filter(q => p.quiz[q]).length + '/' + QUIZZES : '',
         Array.from(p.tags).join(', ')])
-      .concat(LEVELS.map(k => { const L = p.lv[k]; return !L ? '' : L.won ? String(L.won) : L.n + ' (ยังไม่ผ่าน)'; }))
+      .concat(LEVELS.map(k => {
+        const L = p.lv[k];
+        return !L ? '' : NO_PASS.indexOf(k) >= 0 ? String(L.n) : L.won ? String(L.won) : L.n + ' (ยังไม่ผ่าน)';
+      }))
       .concat([avgMoves, typedPct, style, p.fb ? p.fb.difficulty : '', p.fb ? p.fb.enjoyment : '',
         p.fb ? (OLD_PART[p.fb.hardest] ? PART_NAME[OLD_PART[p.fb.hardest]] : p.fb.hardest) : '', p.fb ? p.fb.question : '',
         p.fb ? p.fb.comment || '' : '']);
@@ -306,16 +310,17 @@ function styleSummary_(sh, groups, cols, nRows, firstMin) {      // nRows: the s
   sh.setFrozenColumns(2);
   sh.setTabColor(TEAL);
   sh.getBandings().forEach(b => b.remove());
-  let c = 1;
-  groups.forEach(g => { sh.getRange(1, c, 1, g.cols.length).setBackground(g.color); c += g.cols.length; });
+  // One heading colour per group. Painted after the banding, which would otherwise cover it.
+  const paint = () => { let c = 1; groups.forEach(g => { sh.getRange(1, c, 1, g.cols.length).setBackground(g.color); c += g.cols.length; }); };
   sh.getRange(1, 1, 1, n).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center')
     .setVerticalAlignment('middle').setWrapStrategy(WRAP.WRAP);
   cols.forEach((x, i) => sh.setColumnWidth(i + 1, x.w || KIND[x.kind].w));
   try { sh.autoResizeRows(1, 1); } catch (err) { sh.setRowHeight(1, 80); }
-  if (!nRows) { sh.setConditionalFormatRules([]); return; }
+  if (!nRows) { paint(); sh.setConditionalFormatRules([]); return; }
 
   sh.getRange(1, 1, nRows + 1, n).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, true)
     .setHeaderRowColor(INK).setFirstRowColor('#FFFFFF').setSecondRowColor(PALE).setFooterRowColor('#E3E8EE');
+  paint();
   cols.forEach((x, i) => {
     const k = KIND[x.kind];
     sh.getRange(2, i + 1, nRows, 1).setHorizontalAlignment(k.align).setVerticalAlignment('top')
