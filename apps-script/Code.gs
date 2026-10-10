@@ -360,7 +360,7 @@ function styleTab_(sh, cols) {
   sh.setRowHeight(1, 34);
   cols.forEach((c, i) => {
     const k = kind_(c);
-    sh.setColumnWidth(i + 1, COL_WIDTH[c] || k.w);
+    sh.setColumnWidth(i + 1, Math.max(COL_WIDTH[c] || k.w, 34 + Math.ceil(c.length * 8.5)));   // room for the heading and its filter button
     if (COL_KIND[c] === 'id') sh.hideColumns(i + 1);
     if (body < 1) return;
     const r = sh.getRange(2, i + 1, body, 1);
