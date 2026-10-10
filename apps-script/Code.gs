@@ -5,7 +5,8 @@
  *   1. In the Google Sheet: Extensions → Apps Script, paste this whole file, Save.
  *   2. Deploy → New deployment → Web app · Execute as: Me · Who has access: Anyone → Deploy.
  *   3. Copy the web-app URL into LOG_URL near the top of the <script> in index.html.
- * Then use the "Newton" menu in the sheet → "สร้างสรุป" to rebuild the Summary tab.
+ * Then use the "Newton" menu in the sheet → "สร้างสรุป" to rebuild the Summary tab,
+ * and "จัดรูปแบบชีต" to tidy how the data tabs look.
  */
 
 // One tab per event type. Column names match the fields the game sends.
@@ -41,6 +42,38 @@ const OLD_PART = { 'ด่านที่ 1': 'ch1', 'พาร์ทสอน':
   'ปรับมวลและ μ เอง': 'sandbox', 'ด่านแถม (โพรเจกไทล์)': 'bonus', 'พาร์ทสอน (แถม)': 'projLesson' };
 const LEVELS = ['ch1', 'fric', 'sandbox', 'bonus'];
 const QUIZZES = 4;
+
+// How the tabs look. Every column is one of these kinds: width in px, alignment, wrapping, number format.
+const INK = '#15181C', TEAL = '#3D7B74', PALE = '#F4F6F8', MUTED = '#8A93A0';
+const GOOD = '#1E7B46', WARN = '#B26A00', BAD = '#C0392B';
+const DATE_FMT = 'd mmm yyyy  hh:mm';
+const KIND = {
+  id:    { w: 110, align: 'left',   fmt: '@', color: MUTED },    // hidden: only the script needs these
+  date:  { w: 140, align: 'left',   fmt: DATE_FMT },
+  name:  { w: 150, align: 'left',   fmt: '@' },
+  room:  { w: 80,  align: 'center', fmt: '@' },
+  code:  { w: 110, align: 'left',   fmt: '@' },
+  mark:  { w: 90,  align: 'center', fmt: '@' },
+  tries: { w: 130, align: 'center', fmt: '@' },
+  num:   { w: 90,  align: 'center' },
+  mins:  { w: 130, align: 'center', fmt: '0.0' },
+  label: { w: 240, align: 'left',   fmt: '@', wrap: true },
+  text:  { w: 320, align: 'left',   fmt: '@', wrap: true },
+  long:  { w: 360, align: 'left',   fmt: '@' }
+};
+const COL_KIND = { eid: 'id', sessionId: 'id', deviceId: 'id', ts: 'date', updatedAt: 'date', startedAt: 'date', enteredAt: 'date',
+  name: 'name', room: 'room', entry: 'code', lastStep: 'code', furthest: 'code', section: 'code', quizId: 'code', device: 'code',
+  picks: 'code', outcome: 'mark', change: 'mark', part: 'label', hardest: 'label', pick: 'label',
+  wrongTags: 'text', question: 'text', comment: 'text', slowLines: 'long' };
+const COL_WIDTH = { quizId: 170, device: 135, picks: 120, entry: 125 };
+const kind_ = c => KIND[COL_KIND[c] || 'num'];
+const fmts_ = cols => cols.map(c => kind_(c).fmt || 'General');
+// Colour of TRUE and of FALSE in the yes/no columns; background and text of each outcome.
+const BOOL_STYLE = { reachedEnd: [GOOD, MUTED], completed: [GOOD, MUTED], firstTryCorrect: [GOOD, BAD], typedExact: [TEAL, MUTED],
+  partial: [WARN, MUTED], skipped: [WARN, MUTED] };
+const OUTCOME_STYLE = { success: ['#E3F4EA', GOOD], short: ['#FFF1DC', WARN], long: ['#FFF1DC', WARN], gone: ['#FFF1DC', WARN],
+  nomove: ['#FBE7E7', BAD], 'wrong-way': ['#FBE7E7', BAD] };
+const TAB_ORDER = ['Summary', 'Sessions', 'Sections', 'Attempts', 'Quiz', 'Choices', 'Feedback', 'Setup'];
 
 function doGet() {
   return json_({ ok: true, msg: 'Newton game collector is running' });
@@ -81,15 +114,22 @@ function json_(o) {
 function sheet_(ss, T) {
   let sh = ss.getSheetByName(T.name);
   if (!sh) sh = ss.insertSheet(T.name);
-  if (sh.getLastRow() === 0) {
-    sh.appendRow(T.cols);
-    sh.getRange(1, 1, 1, T.cols.length).setFontWeight('bold');
-    sh.setFrozenRows(1);
-  } else if (sh.getLastColumn() < T.cols.length) {
-    // a column added later (always at the end): give the existing tab its heading
-    sh.getRange(1, 1, 1, T.cols.length).setValues([T.cols]).setFontWeight('bold');
-  }
+  const fresh = sh.getLastRow() === 0;
+  if (fresh) sh.appendRow(T.cols);
+  // a column added later (always at the end): give the existing tab its heading
+  else if (sh.getLastColumn() < T.cols.length) sh.getRange(1, 1, 1, T.cols.length).setValues([T.cols]);
+  else return sh;
+  try { styleTab_(sh, T.cols); } catch (err) { /* the look must never stop data from being saved */ }
   return sh;
+}
+
+// Rows are written with the column formats set first, so a class like "6/7" or a name like "007" stays the text
+// the student typed instead of turning into a date or a number.
+function write_(sh, row, cols, rows) {
+  const last = row + rows.length - 1, max = sh.getMaxRows();
+  if (last > max) sh.insertRowsAfter(max, last - max + 50);
+  const f = fmts_(cols);
+  sh.getRange(row, 1, rows.length, cols.length).setNumberFormats(rows.map(() => f)).setValues(rows);
 }
 
 // Strings from students (names, free text) must never be read as formulas.
@@ -117,7 +157,7 @@ function appendNew_(sh, T, evs) {
     seen.add(ev.eid);
     rows.push(T.cols.map(c => cell_(c, ev[c])));
   });
-  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, T.cols.length).setValues(rows);
+  if (rows.length) write_(sh, sh.getLastRow() + 1, T.cols, rows);
   return rows.length;
 }
 
@@ -134,11 +174,12 @@ function upsert_(sh, T, evs) {
     const hit = at[id];
     if (hit) {
       if (hit.t >= t) return;
-      sh.getRange(hit.row, 1, 1, row.length).setValues([row]);
+      write_(sh, hit.row, T.cols, [row]);
       hit.t = t;
     } else {
-      sh.appendRow(row);
-      at[id] = { row: sh.getLastRow(), t };
+      const r1 = sh.getLastRow() + 1;
+      write_(sh, r1, T.cols, [row]);
+      at[id] = { row: r1, t };
     }
     count++;
   });
@@ -150,6 +191,7 @@ function upsert_(sh, T, evs) {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Newton')
     .addItem('สร้างสรุป (Build summary)', 'buildSummary')
+    .addItem('จัดรูปแบบชีต (Format sheets)', 'formatSheets')
     .addToUi();
 }
 
@@ -199,11 +241,20 @@ function buildSummary() {
   });
   feedback.forEach(r => { if (r.skipped !== true) P(r).fb = r; });
 
-  const head = ['ชั้น', 'ชื่อ', 'จำนวนครั้งที่เข้าเล่น', 'เล่นล่าสุด', 'ไปถึง', 'จบเกม', 'เวลารวม (นาที)']
-    .concat(PARTS.map(k => 'นาที: ' + PART_NAME[k]))
-    .concat(['ใช้เวลามากที่สุด', 'ควิซถูกตั้งแต่ครั้งแรก', 'ความเข้าใจผิดที่เจอ'])
-    .concat(LEVELS.map(k => 'ครั้งที่ลอง: ' + PART_NAME[k]))
-    .concat(['ขยับค่า/ครั้ง', '% พิมพ์ตัวเลขเอง', 'วิธีหาคำตอบ (คร่าวๆ)', 'ความยาก (1–5)', 'ความสนุก (1–5)', 'ส่วนที่ยากที่สุด', 'ยังสงสัย', 'คิดยังไงกับเกมนี้']);
+  // The columns, in groups that each get their own heading colour: who, time, quizzes, tries, feedback.
+  const col = (h, kind, w) => ({ h, kind, w });
+  const groups = [
+    { color: INK, cols: [col('ชั้น', 'room'), col('ชื่อ', 'name'), col('จำนวนครั้งที่เข้าเล่น', 'num'), col('เล่นล่าสุด', 'date'),
+        col('ไปถึง', 'label'), col('จบเกม', 'mark')] },
+    { color: TEAL, cols: [col('เวลารวม (นาที)', 'mins')].concat(PARTS.map(k => col('นาที: ' + PART_NAME[k], 'mins')))
+        .concat([col('ใช้เวลามากที่สุด', 'label')]) },
+    { color: '#6C3483', cols: [col('ควิซถูกตั้งแต่ครั้งแรก', 'mark', 110), col('ความเข้าใจผิดที่เจอ', 'text')] },
+    { color: '#1F4E9C', cols: LEVELS.map(k => col('ครั้งที่ลอง: ' + PART_NAME[k], 'tries'))
+        .concat([col('ขยับค่า/ครั้ง', 'num'), col('% พิมพ์ตัวเลขเอง', 'num'), col('วิธีหาคำตอบ (คร่าวๆ)', 'code', 180)]) },
+    { color: '#8A4D00', cols: [col('ความยาก (1–5)', 'num'), col('ความสนุก (1–5)', 'num'), col('ส่วนที่ยากที่สุด', 'label'),
+        col('ยังสงสัย', 'text'), col('คิดยังไงกับเกมนี้', 'text')] }
+  ];
+  const cols = [].concat.apply([], groups.map(g => g.cols)), head = cols.map(c => c.h);
 
   const list = Object.keys(people).map(k => people[k]).filter(p => p.name || p.room)
     .sort((a, b) => a.room.localeCompare(b.room) || a.name.localeCompare(b.name));
@@ -241,15 +292,195 @@ function buildSummary() {
   let sh = ss.getSheetByName('Summary');
   if (!sh) sh = ss.insertSheet('Summary', 0);
   sh.clear();
-  sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setWrap(true);
+  sh.getRange(1, 1, 1, head.length).setValues([head]);
+  if (out.length) {
+    const f = cols.map(c => KIND[c.kind].fmt || 'General');      // set first, so "3/4" stays a score and not a date
+    sh.getRange(2, 1, out.length, head.length).setNumberFormats(out.map(() => f)).setValues(out);
+  }
+  styleSummary_(sh, groups, cols, out.length, firstMin);
+}
+
+function styleSummary_(sh, groups, cols, nRows, firstMin) {      // nRows: the students plus the average row
+  const n = cols.length, WRAP = SpreadsheetApp.WrapStrategy;
   sh.setFrozenRows(1);
   sh.setFrozenColumns(2);
-  if (out.length) {
-    sh.getRange(2, 1, out.length, head.length).setValues(out);
-    sh.getRange(out.length + 1, 1, 1, head.length).setFontWeight('bold');
-    // Heat map on minutes per part: where each student spends the most time stands out.
-    const range = sh.getRange(2, firstMin + 2, out.length - 1 || 1, PARTS.length);
-    sh.setConditionalFormatRules([SpreadsheetApp.newConditionalFormatRule()
-      .setGradientMinpoint('#FFFFFF').setGradientMaxpoint('#F4A259').setRanges([range]).build()]);
+  sh.setTabColor(TEAL);
+  sh.getBandings().forEach(b => b.remove());
+  let c = 1;
+  groups.forEach(g => { sh.getRange(1, c, 1, g.cols.length).setBackground(g.color); c += g.cols.length; });
+  sh.getRange(1, 1, 1, n).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center')
+    .setVerticalAlignment('middle').setWrapStrategy(WRAP.WRAP);
+  cols.forEach((x, i) => sh.setColumnWidth(i + 1, x.w || KIND[x.kind].w));
+  try { sh.autoResizeRows(1, 1); } catch (err) { sh.setRowHeight(1, 80); }
+  if (!nRows) { sh.setConditionalFormatRules([]); return; }
+
+  sh.getRange(1, 1, nRows + 1, n).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, true)
+    .setHeaderRowColor(INK).setFirstRowColor('#FFFFFF').setSecondRowColor(PALE).setFooterRowColor('#E3E8EE');
+  cols.forEach((x, i) => {
+    const k = KIND[x.kind];
+    sh.getRange(2, i + 1, nRows, 1).setHorizontalAlignment(k.align).setVerticalAlignment('top')
+      .setWrapStrategy(k.wrap ? WRAP.WRAP : WRAP.CLIP);
+  });
+  sh.getRange(nRows + 1, 1, 1, n).setFontWeight('bold');                       // the average row
+  const students = nRows - 1 || 1, at = h => cols.map(x => x.h).indexOf(h) + 1, rule = () => SpreadsheetApp.newConditionalFormatRule();
+  sh.getRange(2, at('จบเกม'), nRows, 1).setFontColor(GOOD).setFontWeight('bold');
+  // Heat map on minutes per part: where each student spends the most time stands out.
+  const rules = [rule().setGradientMinpoint('#FFFFFF').setGradientMaxpoint('#F4A259')
+      .setRanges([sh.getRange(2, firstMin + 2, students, PARTS.length)]).build(),
+    scale_([sh.getRange(2, at('ความยาก (1–5)'), students, 1)], '#F4A259'),
+    scale_([sh.getRange(2, at('ความสนุก (1–5)'), students, 1)], '#7CC49A')];
+  cols.forEach((x, i) => {
+    if (x.kind === 'tries') rules.push(rule().whenTextContains('ยังไม่ผ่าน').setFontColor(BAD)
+      .setRanges([sh.getRange(2, i + 1, students, 1)]).build());
+  });
+  sh.setConditionalFormatRules(rules);
+}
+
+/* ---------------- Look of the data tabs ---------------- */
+
+// Menu: Newton → จัดรูปแบบชีต. Changes only how the tabs look, plus one repair: names and classes that Sheets had
+// read as dates or numbers are put back as the text the student typed.
+function formatSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Object.keys(TABS).forEach(type => {
+    const T = TABS[type], sh = ss.getSheetByName(T.name);
+    if (!sh || sh.getLastRow() === 0) return;
+    repairText_(sh, T.cols);
+    styleTab_(sh, T.cols);
+  });
+  styleSetup_(ss.getSheetByName('Setup'));
+  orderTabs_(ss);
+}
+
+function styleTab_(sh, cols) {
+  const n = cols.length, max = sh.getMaxRows(), body = max - 1, WRAP = SpreadsheetApp.WrapStrategy;
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, n).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center')
+    .setVerticalAlignment('middle').setWrapStrategy(WRAP.WRAP);
+  sh.setRowHeight(1, 34);
+  cols.forEach((c, i) => {
+    const k = kind_(c);
+    sh.setColumnWidth(i + 1, COL_WIDTH[c] || k.w);
+    if (COL_KIND[c] === 'id') sh.hideColumns(i + 1);
+    if (body < 1) return;
+    const r = sh.getRange(2, i + 1, body, 1);
+    r.setHorizontalAlignment(k.align).setVerticalAlignment('top').setWrapStrategy(k.wrap ? WRAP.WRAP : WRAP.CLIP);
+    if (k.fmt) r.setNumberFormat(k.fmt);
+    if (k.color) r.setFontColor(k.color);
+  });
+  const keep = cols.indexOf('room') + 1;                 // date, name and class stay in view while scrolling sideways
+  if (keep > 0) sh.setFrozenColumns(keep);
+  sh.getBandings().forEach(b => b.remove());
+  sh.getRange(1, 1, max, n).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false)
+    .setHeaderRowColor(INK).setFirstRowColor('#FFFFFF').setSecondRowColor(PALE);
+  if (!sh.getFilter()) sh.getRange(1, 1, max, n).createFilter();
+  if (body > 0) rules_(sh, cols, body);
+}
+
+const a1_ = n => { let s = ''; for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+const scale_ = (ranges, color) => SpreadsheetApp.newConditionalFormatRule()
+  .setGradientMinpointWithValue('#FFFFFF', SpreadsheetApp.InterpolationType.NUMBER, '1')
+  .setGradientMaxpointWithValue(color, SpreadsheetApp.InterpolationType.NUMBER, '5').setRanges(ranges).build();
+
+// Colour cues: yes/no columns, how each try ended, and the 1–5 answers.
+function rules_(sh, cols, nRows) {
+  const R = [], rule = () => SpreadsheetApp.newConditionalFormatRule();
+  cols.forEach((c, i) => {
+    const rng = [sh.getRange(2, i + 1, nRows, 1)], cell = a1_(i + 1) + '2';
+    if (BOOL_STYLE[c]) {
+      R.push(rule().whenFormulaSatisfied('=' + cell + '=TRUE').setFontColor(BOOL_STYLE[c][0]).setBold(true).setRanges(rng).build());
+      R.push(rule().whenFormulaSatisfied('=AND(ISLOGICAL(' + cell + '),NOT(' + cell + '))').setFontColor(BOOL_STYLE[c][1])
+        .setRanges(rng).build());
+    }
+    if (c === 'outcome') Object.keys(OUTCOME_STYLE).forEach(v => R.push(rule().whenTextEqualTo(v)
+      .setBackground(OUTCOME_STYLE[v][0]).setFontColor(OUTCOME_STYLE[v][1]).setRanges(rng).build()));
+    if (c === 'difficulty') R.push(scale_(rng, '#F4A259'));
+    if (c === 'enjoyment') R.push(scale_(rng, '#7CC49A'));
+  });
+  sh.setConditionalFormatRules(R);
+}
+
+// Rows saved before the columns were plain text: a class typed as "6/7" became 7 June and "007" became 7.
+// What the cell shows is still what was typed, so that is written back as text. Returns how many cells changed.
+function repairText_(sh, cols) {
+  const n = sh.getLastRow() - 1;
+  let fixed = 0;
+  if (n < 1) return fixed;
+  ['name', 'room'].forEach(c => {
+    const i = cols.indexOf(c);
+    if (i < 0) return;
+    const rng = sh.getRange(2, i + 1, n, 1), vals = rng.getValues(), shown = rng.getDisplayValues();
+    rng.setNumberFormat('@');
+    vals.forEach((v, r) => {
+      if (!(v[0] instanceof Date) && typeof v[0] !== 'number') return;
+      sh.getRange(r + 2, i + 1).setValue(shown[r][0]);
+      fixed++;
+    });
+  });
+  return fixed;
+}
+
+// The instructions tab: one readable column, headings in bold.
+function styleSetup_(sh) {
+  if (!sh || sh.getLastRow() < 1) return;
+  const rng = sh.getRange(1, 1, sh.getLastRow(), 1), v = rng.getValues();
+  sh.setHiddenGridlines(true);
+  sh.setColumnWidth(1, 980);
+  rng.setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP).setVerticalAlignment('top').setFontColor(INK).setFontWeight('normal').setFontSize(11);
+  v.forEach((r, i) => { if (/:\s*$/.test(String(r[0]))) sh.getRange(i + 1, 1).setFontWeight('bold'); });
+  sh.getRange(1, 1).setFontSize(16).setFontWeight('bold').setFontColor(TEAL);
+}
+
+// Summary first, then the data in the order a play-through produces it.
+function orderTabs_(ss) {
+  const shown = ss.getActiveSheet();
+  let pos = 0;
+  TAB_ORDER.forEach(name => {
+    const sh = ss.getSheetByName(name);
+    if (!sh) return;
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(++pos);
+    sh.setTabColor(name === 'Summary' ? TEAL : name === 'Setup' ? null : MUTED);
+  });
+  ss.setActiveSheet(shown);
+}
+
+// Run from the editor after changing this file: writes sample rows to two scratch tabs, checks them, removes the tabs.
+function selfTest() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), names = ['selftest_rows', 'selftest_sessions'];
+  const drop = () => names.forEach(nm => { const s = ss.getSheetByName(nm); if (s) ss.deleteSheet(s); });
+  const check = (label, got, want) => { if (got !== want) throw new Error(label + ': got ' + JSON.stringify(got) + ', want ' + JSON.stringify(want)); };
+  drop();
+  try {
+    const F = { name: names[0], cols: TABS.feedback.cols }, S = { name: names[1], key: 'sessionId', cols: TABS.session.cols };
+    const ev = (eid, o) => Object.assign({ eid, ts: '2026-10-10T10:00:00.000Z', sessionId: 's-' + eid, name: 'ทดสอบ', room: 'ม.4/1' }, o);
+    const fb = sheet_(ss, F);
+    check('saved', appendNew_(fb, F, [ev('a', { room: '6/7', name: '007', difficulty: 3, enjoyment: 5, question: '=1+1', comment: '3/4', skipped: false }),
+      ev('b', { skipped: true })]), 2);
+    check('resend ignored', appendNew_(fb, F, [ev('a', {})]), 0);
+    const v = fb.getDataRange().getValues(), at = c => F.cols.indexOf(c);
+    check('rows', v.length, 3);
+    check('class stays text', v[1][at('room')], '6/7');
+    check('name stays text', v[1][at('name')], '007');
+    check('comment stays text', v[1][at('comment')], '3/4');
+    check('no formula', fb.getRange(2, at('question') + 1).getFormula(), '');
+    check('number', v[1][at('difficulty')], 3);
+    check('date', v[1][at('ts')] instanceof Date, true);
+    check('yes/no', v[2][at('skipped')], true);
+    const se = sheet_(ss, S), one = o => Object.assign({ type: 'session', sessionId: 'S1', name: 'ทดสอบ', room: '1/2', runs: 1 }, o);
+    check('new session', upsert_(se, S, [one({ ts: '2026-10-10T10:00:00.000Z', lastStep: 'ch1' })]), 1);
+    check('update', upsert_(se, S, [one({ ts: '2026-10-10T10:05:00.000Z', lastStep: 'fric' })]), 1);
+    check('late update ignored', upsert_(se, S, [one({ ts: '2026-10-10T10:01:00.000Z', lastStep: 'lesson' })]), 0);
+    const w = se.getDataRange().getValues();
+    check('one row per session', w.length, 2);
+    check('newest kept', w[1][S.cols.indexOf('lastStep')], 'fric');
+    check('session class stays text', w[1][S.cols.indexOf('room')], '1/2');
+    styleTab_(fb, F.cols);
+    styleTab_(se, S.cols);
+    check('still 3 rows after styling', fb.getLastRow(), 3);
+    Logger.log('selfTest: all checks passed');
+    return 'ok';
+  } finally {
+    drop();
   }
 }
