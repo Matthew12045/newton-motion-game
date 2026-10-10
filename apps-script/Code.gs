@@ -460,6 +460,9 @@ function orderTabs_(ss) {
 const THAI_TZ = 'Asia/Bangkok';
 const clock_ = (d, tz) => Utilities.formatDate(d, tz, 'd|yyyy|HH:mm');
 const shownClock_ = s => { const m = String(s).match(/^(\d{1,2}) \S+ (\d{4})\s+(\d{2}):(\d{2})$/); return m ? m[1] + '|' + m[2] + '|' + m[3] + ':' + m[4] : String(s); };
+// A cell shows its time rounded, so a moment 59.6 s into a minute can show as the next minute. A wrong time zone
+// would be off by hours, so half a minute of slack keeps the check meaningful.
+const sameClock_ = (d, tz, shown) => { const s = shownClock_(shown); return s === clock_(d, tz) || s === clock_(new Date(d.getTime() + 30000), tz); };
 // The number a cell holds for a moment shown in a time zone: days since 30 Dec 1899 on that zone's clock.
 function serial_(d, tz) {
   const z = Utilities.formatDate(d, tz, 'Z'), off = (z[0] === '-' ? -1 : 1) * (Number(z.slice(1, 3)) * 60 + Number(z.slice(3, 5)));
@@ -494,7 +497,7 @@ function useThaiTime() {
       j.vals.forEach((v, r) => {
         if (!(v[0] instanceof Date)) return;
         times++;
-        if (clock_(v[0], old) !== shownClock_(shown[r][0])) throw new Error('หยุดก่อนแก้ไข: เวลาใน ' + j.tab + '!' + j.col +
+        if (!sameClock_(v[0], old, shown[r][0])) throw new Error('หยุดก่อนแก้ไข: เวลาใน ' + j.tab + '!' + j.col +
           ' แถว ' + (r + 2) + ' อ่านได้ ' + clock_(v[0], old) + ' แต่ชีตแสดง ' + shown[r][0] + ' (ยังไม่มีอะไรถูกเปลี่ยน)');
       });
     });
@@ -509,7 +512,7 @@ function useThaiTime() {
     let wrong = 0;
     jobs.forEach(j => {
       const shown = j.rng.getDisplayValues();
-      j.vals.forEach((v, r) => { if (v[0] instanceof Date && clock_(v[0], THAI_TZ) !== shownClock_(shown[r][0])) wrong++; });
+      j.vals.forEach((v, r) => { if (v[0] instanceof Date && !sameClock_(v[0], THAI_TZ, shown[r][0])) wrong++; });
     });
     if (wrong) throw new Error('เปลี่ยนเป็นเวลาไทยแล้ว แต่มี ' + wrong + ' ช่องที่เวลาไม่ตรง ใช้ File → Version history เพื่อย้อนกลับได้');
     return say_(ss, 'เปลี่ยนจาก ' + old + ' เป็นเวลาประเทศไทยแล้ว แก้เวลา ' + times + ' ช่อง กรุณากด "สร้างสรุป" อีกครั้ง');
